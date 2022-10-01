@@ -1,56 +1,58 @@
-//SPDX-License-Identifier: Unlicense
+//SPDX-License-Identifier:MIT
 pragma solidity ^0.8.0;
+
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./CrowdFundingContract.sol";
 
 contract CrowdSourcingFactory is Ownable {
-    address immutable crowdFundingImplementation;
-    address[] public _deployedContracts;
+    //state variable
+    address immutable crowdFundingContractImplementation;
+    address[] public deployedContracts;
     uint256 public fundingFee = 0.001 ether;
 
-    // events
-    event newCrowdFundingCreated(
+    //events
+    event newFundingContract(
         address indexed owner,
         uint256 amount,
         address cloneAddress,
         string fundingCID
     );
 
-    constructor(address _implementation) Ownable() {
-        crowdFundingImplementation = _implementation;
+    constructor(address _crowdFundingContract) {
+        crowdFundingContractImplementation = _crowdFundingContract;
     }
 
-    function createCrowdFundingContract(
-        string memory _fundingCId,
+    function createFundingContract(
         uint256 _amount,
+        string memory _fundingCID,
         uint256 _duration
     ) external payable returns (address) {
-        require(msg.value >= fundingFee, "deposit too small");
-        address clone = Clones.clone(crowdFundingImplementation);
+        require(_amount > fundingFee, "deposit too small");
+        address clone = Clones.clone(crowdFundingContractImplementation);
         (bool success, ) = clone.call(
             abi.encodeWithSignature(
-                "initilize(string, uint256, uint256)",
-                _fundingCId,
+                "initialize(string, uint256, uint256)",
+                _fundingCID,
                 _amount,
                 _duration
             )
         );
-        require(success, "creation failed");
-
-        _deployedContracts.push(clone);
-        emit newCrowdFundingCreated(msg.sender, msg.value, clone, _fundingCId);
+        require(success, "failed to create clone contract");
+        deployedContracts.push(clone);
+        emit newFundingContract(msg.sender, _amount, clone, _fundingCID);
         return (clone);
     }
 
-    function withdrawFunds() external onlyOwner {
-        uint256 balance = address(this).balance;
-        require(balance > 0, "Require funds to withdraw");
-        (bool success, ) = payable(msg.sender).call{value: balance}("");
-        require(success, "Failed to withdraw");
+    function deployContract() public view returns (address[] memory) {
+        return deployedContracts;
     }
 
-    function deployedContracts() public view returns (address[] memory) {
-        return _deployedContracts;
+    function withdraw() public onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "nothing to withdraw");
+        (bool success, ) = payable(msg.sender).call{value: balance}("");
+        require(success, "withdraw failed");
     }
 
     receive() external payable {}
