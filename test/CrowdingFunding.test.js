@@ -72,7 +72,7 @@ describe("CrowdFunding", function () {
     };
   }
   describe("Contract Factory test suite", function () {
-    it("should creat a clone contract and create a bew campaign", async () => {
+    it("should creat a clone contract and create a new campaign", async () => {
       const {contractFactory, otherAccount, deposit, futureTime, fundingId} = await loadFixture(setUpContractUtils);
 
       const txn = await contractFactory

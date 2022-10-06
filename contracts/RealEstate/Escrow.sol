@@ -1,6 +1,7 @@
 //SPDX-License-Identifier:MIT
 pragma solidity ^0.8.0;
 import "hardhat/console.sol";
+import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 interface IERC721 {
     function transferFrom(
@@ -10,7 +11,7 @@ interface IERC721 {
     ) external;
 }
 
-contract Escrow {
+contract Escrow is Initializable {
     address public nftAddress;
     uint256 public nftID;
     uint256 public purchasePrice;
@@ -31,14 +32,23 @@ contract Escrow {
     }
 
     modifier onlyInspector() {
-        require(msg.sender == inspector, "not called by lender");
+        require(msg.sender == inspector, "not called by inspector");
         _;
     }
 
-    bool public inspectionPassed = false;
+    modifier onlyWhiteListed() {
+        require(
+            msg.sender == buyer || msg.sender == seller || msg.sender == lender,
+            "not whitelisted"
+        );
+        _;
+    }
+
+    bool public inspectionPassed;
+    bool public fundsDeposited;
     mapping(address => bool) public approvals;
 
-    constructor(
+    function initialize(
         address _nftAddress,
         uint256 _nftID,
         uint256 _purchasePrice,
@@ -47,7 +57,7 @@ contract Escrow {
         address _buyer,
         address _inspector,
         address _lender
-    ) {
+    ) external {
         nftAddress = _nftAddress;
         nftID = _nftID;
         purchasePrice = _purchasePrice;
@@ -60,11 +70,11 @@ contract Escrow {
 
     // Put Under Contract (only buyer - payable escrow)
     function depositEarnest() external payable onlyBuyer {
-        console.log(msg.value);
-        //require(msg.value >= escrowAmount);
+        require(msg.value >= escrowAmount, "Insufficient deposit");
+        fundsDeposited = true;
     }
 
-    function approveSale() public {
+    function approveSale() public onlyWhiteListed {
         approvals[msg.sender] = true;
     }
 
@@ -91,9 +101,10 @@ contract Escrow {
         require(success, "transfer failed");
     }
 
-    function cancelSale() public {
+    function cancelSale() public onlyWhiteListed {
         // Cancel Sale (handle earnest deposit)
         // -> if inspection status is not approved, then refund, otherwise send to seller
+        require(fundsDeposited, "funds not deposited");
         if (!inspectionPassed) {
             (bool success, ) = payable(buyer).call{
                 value: address(this).balance
