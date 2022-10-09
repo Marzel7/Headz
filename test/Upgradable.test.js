@@ -4,54 +4,41 @@ const hre = require("hardhat");
 const {expect} = require("chai");
 
 describe("Upgradeable", function () {
-  let deployer;
-  let count = 1;
+  let deployer, implementation, updradedInstance;
+  let count = 0;
 
   async function setUpContractUtils() {
     [deployer] = await ethers.getSigners();
 
+    // deploy implementation
     const Implementation = await ethers.getContractFactory("Implementation");
-
-    const implementation = await upgrades.deployProxy(Implementation, [count], {
+    implementation = await upgrades.deployProxy(Implementation, [count], {
       initializer: "initialize",
     });
-
     await implementation.deployed();
-
-    await implementation.incrementNumber();
-    let newCount = await implementation.number();
-    let implementationOwner = await implementation.owner();
-
-    // Upgrade contract with new logic
-    const Logic = await ethers.getContractFactory("Logic");
-    await upgrades.upgradeProxy(implementation.address, Logic);
-
-    await implementation.incrementNumber();
-    let upgradedCount = await implementation.number();
+    let implementationInstance = await ethers.getContractAt("Implementation", implementation.address, deployer);
 
     return {
-      implementationAdr: implementation.address,
-      implementationNumber: newCount,
-      implementationOwner,
-      upgradedImplementationAdr: implementation.address,
-      upgradedImplementationNumber: upgradedCount,
+      implementationInstance,
     };
   }
   describe("Implementation Factory test suite", function () {
-    it("upgrades implementation contract", async () => {
-      const {
-        implementationAdr,
-        implementationNumber,
-        implementationOwner,
-        upgradedImplementationAdr,
-        upgradedImplementationNumber,
-      } = await loadFixture(setUpContractUtils);
-      expect(implementationNumber).to.eq(++count); // implementation increments by 1
-      expect(implementationOwner).to.be.equal(deployer.address); // owner adr
-      expect(upgradedImplementationAdr).to.be.equal(implementationAdr); // implementation adr remain unchanged after update
-      expect(upgradedImplementationNumber).to.be.equal(4); // logic implementation increments by 2, uses implementation state memory
+    it("increments implementation contract", async () => {
+      const {implementationInstance} = await loadFixture(setUpContractUtils);
+      expect(await implementationInstance.number()).to.eq(0); // inits to zero
+      await implementationInstance.incrementNumber();
+      expect(await implementationInstance.number()).to.eq(1); //
+      expect(await implementationInstance.owner()).to.eq(deployer.address); // owner adr
     });
 
-    it("updates implementation contract with new owner", async () => {});
+    it("increments upgraded contract", async () => {
+      // Upgrade contract with new logic
+      const Logic = await ethers.getContractFactory("Logic");
+      let updradedInstance = await upgrades.upgradeProxy(implementation.address, Logic);
+      expect(await updradedInstance.number()).to.eq(1);
+      await updradedInstance.incrementNumber();
+      expect(await updradedInstance.number()).to.eq(3); // increments by 2
+      expect(await updradedInstance.owner()).to.eq(deployer.address); // owner adr
+    });
   });
 });
