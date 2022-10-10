@@ -7,9 +7,11 @@ const ERC20 = require("@openzeppelin/contracts/build/contracts/ERC20.json");
 const IERC20 = new ethers.utils.Interface(JSON.stringify(ERC20.abi));
 const ERC1155 = require("@openzeppelin/contracts/build/contracts/ERC1155.json");
 const IERC1155 = new ethers.utils.Interface(JSON.stringify(ERC1155.abi));
+const ERC721 = require("@openzeppelin/contracts/build/contracts/ERC721.json");
+const IERC721 = new ethers.utils.Interface(JSON.stringify(ERC721.abi));
 
 describe("Crops Marketplace", function () {
-  let crops, market, daiToken, amountToDeposit, deployer, receiver, nftPrice;
+  let crops, market, daiToken, headz, amountToDeposit, deployer, receiver, nftPrice;
 
   async function setUpContractUtils() {
     [deployer, receiver] = await ethers.getSigners();
@@ -26,6 +28,10 @@ describe("Crops Marketplace", function () {
     market = await Market.deploy(daiToken.address, crops.address, 1);
     await market.deployed();
 
+    const Headz = await ethers.getContractFactory("Headz");
+    headz = await Headz.deploy("Headz", "HDZ");
+    await headz.deployed();
+
     amountToDeposit = ethers.utils.parseEther("0.1");
     nftPrice = ethers.utils.parseEther("0.5");
 
@@ -36,9 +42,11 @@ describe("Crops Marketplace", function () {
       cropsAdr: crops.address,
       marketAdr: market.address,
       daiAdr: daiToken.address,
+      headzAdr: headz.address,
       deployerAdr: deployer.address,
       receiverAdr: receiver.address,
       cropsInstance: crops,
+      headzInstance: headz,
       marketInstance: market,
       daiInstance: daiToken,
     };
@@ -54,14 +62,17 @@ describe("Crops Marketplace", function () {
       // define the parameters for that function
       const parameters = [deployerAdr, receiverAdr, amountToDeposit];
 
+      const targets = [daiAdr];
+
       // Encode data
       const encodedData = IERC20.encodeFunctionData(signature, parameters);
-      await marketInstance.executeTransaction(daiAdr, [encodedData]);
+      await marketInstance.executeTransaction(targets, [encodedData]);
 
       // check updated balances
       expect(daiToken.allowance(marketAdr, deployerAdr, amountToDeposit));
       expect(await daiToken.balanceOf(receiverAdr)).to.eq(amountToDeposit);
     });
+
     it("Executes ERC1155 transaction", async () => {
       const {cropsInstance, marketInstance, deployerAdr, marketAdr, receiverAdr, cropsAdr} = await loadFixture(
         setUpContractUtils
@@ -74,15 +85,50 @@ describe("Crops Marketplace", function () {
       // define the function signature we want to call
       const signature = "safeTransferFrom(address, address, uint256, uint256, bytes)";
 
-      // define the parameters for the functio
+      // define the parameters for the function
       const parameters = [deployerAdr, receiverAdr, 0, 1000, "0x"];
+
+      const targets = [cropsAdr];
 
       // Encode data
       const encodedData = IERC1155.encodeFunctionData(signature, parameters);
-      await marketInstance.executeTransaction(cropsAdr, [encodedData]);
+      await marketInstance.executeTransaction(targets, [encodedData]);
 
       // confirm updated balance
       expect(await crops.balanceOf(receiverAdr, 0)).to.eq(1000);
+    });
+
+    it("Executes multiple transaction", async () => {
+      const {cropsInstance, marketInstance, deployerAdr, marketAdr, receiverAdr, cropsAdr, headzAdr, daiAdr} =
+        await loadFixture(setUpContractUtils);
+
+      // approvals
+      await headz.approve(marketAdr, 1);
+      await cropsInstance.setApprovalForAll(marketAdr, true);
+
+      // define the function signature we want to call
+      const erc721sig = "safeTransferFrom(address, address, uint256)";
+      const erc20sig = "transferFrom(address, address, uint256)";
+      const erc1155sig = "safeTransferFrom(address, address, uint256, uint256, bytes)";
+
+      // define the parameters for the function
+      const erc721Params = [deployerAdr, receiverAdr, 1];
+      const erc20Params = [deployerAdr, receiverAdr, amountToDeposit];
+      const erc1155Params = [deployerAdr, receiverAdr, 0, 1000, "0x"];
+
+      const targets = [headzAdr, daiAdr, cropsAdr];
+
+      // Encode data
+      const erc721EncodedData = IERC721.encodeFunctionData(erc721sig, erc721Params);
+      const erc20EncodedData = IERC20.encodeFunctionData(erc20sig, erc20Params);
+      const erc1155EncodedData = IERC1155.encodeFunctionData(erc1155sig, erc1155Params);
+
+      await marketInstance.executeTransaction(targets, [erc721EncodedData, erc20EncodedData, erc1155EncodedData]);
+
+      // updated balances
+      expect(await daiToken.balanceOf(receiverAdr)).to.eq(amountToDeposit);
+      expect(await crops.balanceOf(receiverAdr, 0)).to.eq(1000);
+      expect(await headz.balanceOf(receiverAdr)).to.eq(1);
     });
   });
 });
