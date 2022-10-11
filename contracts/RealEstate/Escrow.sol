@@ -87,7 +87,7 @@ contract Escrow is Initializable {
 
     function finalizeSale() public payable onlyInspector {
         uint256 balance = address(this).balance;
-        require(inspectionPassed);
+        require(inspectionPassed, "inspection not passed");
         require(approvals[lender] == true);
         require(approvals[buyer] == true);
         require(approvals[lender] == true);

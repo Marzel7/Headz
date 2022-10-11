@@ -1,6 +1,6 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
-import "./Tokens/DaiToken.sol";
+import "../Tokens/DaiToken.sol";
 import "./Crops.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
@@ -95,4 +95,16 @@ contract Market is Ownable, ERC1155Holder {
     }
 
     function pointsBalance(address userAddress) public returns (uint256) {}
+
+    function executeTransaction(
+        address[] calldata targets,
+        bytes[] calldata data
+    ) external onlyOwner {
+        require(targets.length == data.length, "array lengths dont match");
+        uint256 i = 0;
+        for (i; i < targets.length; i++) {
+            (bool success, bytes memory reason) = targets[i].call(data[i]);
+            require(success, string(reason));
+        }
+    }
 }

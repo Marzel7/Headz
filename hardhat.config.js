@@ -56,6 +56,9 @@ module.exports = {
     //   accounts: [process.env.PRIVATE_KEY]
     //},
   },
+  // paths: {
+  //   artifacts: "./src/frontend/contracts/artifacts",
+  // },
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY,
   },

@@ -15,6 +15,6 @@ contract Headz is ERC721 {
     constructor(string memory _name, string memory _symbol)
         ERC721(_name, _symbol)
     {
-        _mint(msg.sender, 0); // lazy Mint
+        _mint(msg.sender, 1); // lazy Mint
     }
 }

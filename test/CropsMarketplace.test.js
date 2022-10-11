@@ -98,7 +98,7 @@ describe("Crops Marketplace", function () {
       expect(await crops.balanceOf(receiverAdr, 0)).to.eq(1000);
     });
 
-    it("Executes multiple transaction", async () => {
+    it("Executes multiple transactions", async () => {
       const {cropsInstance, marketInstance, deployerAdr, marketAdr, receiverAdr, cropsAdr, headzAdr, daiAdr} =
         await loadFixture(setUpContractUtils);
 
