@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "hardhat/console.sol";
 
 contract EtherStore {
@@ -11,7 +12,7 @@ contract EtherStore {
         balances[msg.sender] += msg.value;
     }
 
-    function withdraw() external {
+    function withdraw() external virtual {
         uint256 bal = balances[msg.sender];
         require(bal > 0, "address balance is 0");
 
@@ -26,28 +27,29 @@ contract EtherStore {
     }
 }
 
-contract AttackStore {
-    EtherStore etherStore;
+contract EtherStoreProtected is EtherStore {
+    function withdraw() external override {
+        uint256 bal = balances[msg.sender];
+        require(bal > 0, "balance is zero");
 
-    constructor(address _etherStore) {
-        etherStore = EtherStore(_etherStore);
+        // update balance
+        balances[msg.sender] = 0;
+        (bool success, bytes memory reason) = msg.sender.call{value: bal}("");
+        require(success, string(reason));
+    }
+}
+
+contract EtherStoreGuarded is EtherStore, ReentrancyGuard {
+    function withdraw() external override nonReentrant {
+        uint256 balance = balances[msg.sender];
+        (bool success, bytes memory reason) = msg.sender.call{value: balance}(
+            ""
+        );
+        require(success, string(reason));
+        balances[msg.sender] = 0;
     }
 
-    function attack() external payable {
-        require(address(etherStore).balance > 0);
-        etherStore.deposit{value: 1 ether}();
-        etherStore.withdraw();
-    }
-
-    // msg.data is empty, recieve will be called. As there is no recieve function fallback will be called
-    // Fallback is called when EtherStore sends Ether to this contract.
-    fallback() external payable {
-        if (address(etherStore).balance > 0) {
-            etherStore.withdraw();
-        }
-    }
-
-    function getBalance() external view returns (uint256) {
-        return address(this).balance;
+    function userBalance(address _address) external view returns (uint256) {
+        return balances[_address];
     }
 }

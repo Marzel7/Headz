@@ -29,7 +29,7 @@ describe("Reentrancy", function () {
     const attackProtectedStore = await AttackProtectedStore.deploy(etherStoreProtected.address);
     await attackProtectedStore.deployed();
 
-    const EtherStoreGuarded = await ethers.getContractFactory("EtherStoreProtected");
+    const EtherStoreGuarded = await ethers.getContractFactory("EtherStoreGuarded");
     const etherStoreGuarded = await EtherStoreGuarded.deploy();
     await etherStoreGuarded.deployed();
 
@@ -51,6 +51,8 @@ describe("Reentrancy", function () {
       attackProtectedGuarded,
       attackProtectedGuardedAdr: attackProtectedGuarded.address,
       attackerAdr: attacker.address,
+      user1Adr: user1.address,
+      user2Adr: user2.address,
     };
   }
 
@@ -101,7 +103,8 @@ describe("Reentrancy", function () {
 
     describe("Implements Reentrancy Guard", function () {
       it("Prevents Reentrancy using Guard", async () => {
-        const {etherStoreGuarded, attackProtectedGuarded} = await loadFixture(setUpContractUtils);
+        const {etherStoreGuarded, attackProtectedGuarded, attackProtectedGuardedAdr, attackerAdr, user1Adr, user2Adr} =
+          await loadFixture(setUpContractUtils);
         // users deposit Eth
         await etherStoreGuarded.connect(user1).deposit({value: depositVal});
         expect(await etherStoreGuarded.getBalance()).to.eq(depositVal);
@@ -115,10 +118,13 @@ describe("Reentrancy", function () {
 
         // Attempt to hack funds
         await expect(attackProtectedGuarded.attack({value: hackDepositVal})).to.be.revertedWith("");
+
         // EtherStore balance remains in tact
         expect(await etherStoreGuarded.getBalance()).to.eq(depositVal.mul(2));
         // Attacker contract balance is still 0
         expect(await attackProtectedGuarded.getBalance()).to.eq(0);
+        await etherStoreGuarded.connect(user1).deposit({value: depositVal});
+        await etherStoreGuarded.connect(user2).deposit({value: depositVal});
       });
     });
   });
