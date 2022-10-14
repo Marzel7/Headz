@@ -5,7 +5,7 @@ const {expect} = require("chai");
 const {inputToConfig} = require("@ethereum-waffle/compiler");
 
 describe("Reentrancy", function () {
-  let etherStore, attackStore, attacker, depositVal, hackDepositVal;
+  let attacker, depositVal, hackDepositVal;
 
   async function setUpContractUtils() {
     [attacker, user1, user2] = await ethers.getSigners();
@@ -14,26 +14,49 @@ describe("Reentrancy", function () {
     hackDepositVal = ethers.utils.parseEther("1");
 
     const EtherStore = await ethers.getContractFactory("EtherStore");
-    etherStore = await EtherStore.deploy();
+    const etherStore = await EtherStore.deploy();
     await etherStore.deployed();
 
     const AttackStore = await ethers.getContractFactory("AttackStore");
-    attackStore = await AttackStore.deploy(etherStore.address);
+    const attackStore = await AttackStore.deploy(etherStore.address);
+
+    // Contracts prevent reentrancy
+    const EtherStoreProtected = await ethers.getContractFactory("EtherStoreProtected");
+    const etherStoreProtected = await EtherStoreProtected.deploy();
+    await etherStoreProtected.deployed();
+
+    const AttackProtectedStore = await ethers.getContractFactory("AttackStore");
+    const attackProtectedStore = await AttackProtectedStore.deploy(etherStoreProtected.address);
+    await attackProtectedStore.deployed();
+
+    const EtherStoreGuarded = await ethers.getContractFactory("EtherStoreProtected");
+    const etherStoreGuarded = await EtherStoreGuarded.deploy();
+    await etherStoreGuarded.deployed();
+
+    const AttackProtectedGuarded = await ethers.getContractFactory("AttackStore");
+    const attackProtectedGuarded = await AttackProtectedGuarded.deploy(etherStoreGuarded.address);
+    await attackProtectedGuarded.deployed();
 
     return {
       etherStore,
       etherStoreAdr: etherStore.address,
       attackStore,
       attackStoreAdr: attackStore.address,
+      etherStoreProtected,
+      etherStoreProtectedAdr: etherStoreProtected.address,
+      attackProtectedStore,
+      attackProtectedStoreAdr: attackProtectedStore.address,
+      etherStoreGuarded,
+      etherStoreGuardedAdr: etherStoreGuarded.address,
+      attackProtectedGuarded,
+      attackProtectedGuardedAdr: attackProtectedGuarded.address,
       attackerAdr: attacker.address,
     };
   }
 
   describe("Reentrancy flow", function () {
-    it("", async () => {
-      const {etherStore, etherStoreAdr, attackStore, attackStoreAdr, attackerAdr} = await loadFixture(
-        setUpContractUtils
-      );
+    it("Reentrancy success", async () => {
+      const {etherStore, attackStore} = await loadFixture(setUpContractUtils);
       // users deposit Eth
       await etherStore.connect(user1).deposit({value: depositVal});
       expect(await etherStore.getBalance()).to.eq(depositVal);
@@ -50,6 +73,53 @@ describe("Reentrancy", function () {
       expect(await etherStore.getBalance()).to.eq(0);
       // drained funds + deposit
       expect(await attackStore.getBalance()).to.be.gt(depositVal.mul(2));
+    });
+    describe("Prevents rentrancy ", function () {
+      it("Internal balances updated", async () => {
+        const {etherStoreProtected, attackProtectedStore} = await loadFixture(setUpContractUtils);
+
+        // users deposit Eth
+        await etherStoreProtected.connect(user1).deposit({value: depositVal});
+        expect(await etherStoreProtected.getBalance()).to.eq(depositVal);
+
+        await etherStoreProtected.connect(user2).deposit({value: depositVal});
+        expect(await etherStoreProtected.getBalance()).to.eq(depositVal.mul(2));
+
+        // AttackStore balance is 0
+        let balance = await attackProtectedStore.getBalance();
+        expect(await attackProtectedStore.getBalance()).to.eq(0);
+
+        // Attempt to hack funds
+        await expect(attackProtectedStore.attack({value: hackDepositVal})).to.be.revertedWith("");
+
+        // EtherStore balance remains in tact
+        expect(await etherStoreProtected.getBalance()).to.eq(depositVal.mul(2));
+        // Attacker contract balance is still 0
+        expect(await attackProtectedStore.getBalance()).to.eq(0);
+      });
+    });
+
+    describe("Implements Reentrancy Guard", function () {
+      it("Prevents Reentrancy using Guard", async () => {
+        const {etherStoreGuarded, attackProtectedGuarded} = await loadFixture(setUpContractUtils);
+        // users deposit Eth
+        await etherStoreGuarded.connect(user1).deposit({value: depositVal});
+        expect(await etherStoreGuarded.getBalance()).to.eq(depositVal);
+
+        await etherStoreGuarded.connect(user2).deposit({value: depositVal});
+        expect(await etherStoreGuarded.getBalance()).to.eq(depositVal.mul(2));
+
+        // AttackStore balance is 0
+        let balance = await attackProtectedGuarded.getBalance();
+        expect(await attackProtectedGuarded.getBalance()).to.eq(0);
+
+        // Attempt to hack funds
+        await expect(attackProtectedGuarded.attack({value: hackDepositVal})).to.be.revertedWith("");
+        // EtherStore balance remains in tact
+        expect(await etherStoreGuarded.getBalance()).to.eq(depositVal.mul(2));
+        // Attacker contract balance is still 0
+        expect(await attackProtectedGuarded.getBalance()).to.eq(0);
+      });
     });
   });
 });
