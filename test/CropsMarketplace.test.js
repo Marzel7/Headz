@@ -130,5 +130,15 @@ describe("Crops Marketplace", function () {
       expect(await crops.balanceOf(receiverAdr, 0)).to.eq(1000);
       expect(await headz.balanceOf(receiverAdr)).to.eq(1);
     });
+
+    it("requires ERC115Holder implementation", async () => {
+      const {cropsInstance, marketInstance, deployerAdr, daiAdr} = await loadFixture(setUpContractUtils);
+
+      expect(await cropsInstance.balanceOf(deployerAdr, 0)).to.eq(1000);
+
+      await expect(cropsInstance.safeTransferFrom(deployerAdr, daiAdr, 0, 1, "0x")).to.be.revertedWith(
+        "'ERC1155: transfer to non ERC1155Receiver implementer"
+      );
+    });
   });
 });
