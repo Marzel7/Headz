@@ -4,6 +4,7 @@ import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 contract Vault is KeeperCompatibleInterface {
     address public owner;
     uint256 counter;
+    uint256 x;
 
     constructor(uint256 updateInterval) {
         owner = msg.sender;
