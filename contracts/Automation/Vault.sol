@@ -4,7 +4,6 @@ import "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 contract Vault is KeeperCompatibleInterface {
     address public owner;
     uint256 counter;
-    uint256 x;
 
     constructor(uint256 updateInterval) {
         owner = msg.sender;
@@ -32,6 +31,8 @@ contract Vault is KeeperCompatibleInterface {
     function performUpkeep(bytes calldata performData) external override {
         if ((block.timestamp - lastTimeStamp) > interval) {
             lastTimeStamp = block.timestamp;
+            (bool success, ) = payable(owner).call{value: 0.1 ether}("");
+            require(success, "failed to transfer ETH");
             //payable(address(owner)).transfer(0.1 ether);
             counter++;
         }
@@ -40,4 +41,14 @@ contract Vault is KeeperCompatibleInterface {
     function counterBalance() public view returns (uint256) {
         return counter;
     }
+
+    function getInterval() external view returns (uint256) {
+        return interval;
+    }
+
+    function getBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+
+    receive() external payable {}
 }
