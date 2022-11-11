@@ -1,16 +1,15 @@
 const {ethers, network} = require("hardhat");
-var sleep = require("sleep");
-const fs = require("fs");
 
 const {networkConfig, developmentChains, VERIFICATION_BLOCK_CONFIRMATION} = require("../helper-hardhat-config");
 const verify = require("../utils/verify.js");
 const {toWei} = require("../helpers/helpers");
 
 module.exports = async ({getNamedAccounts, deployments}) => {
+  const signers = await ethers.getSigners();
+  const signer = signers[0];
   const {deploy, log} = deployments;
   const {deployer} = await getNamedAccounts();
   const chainId = network.config.chainId;
-  const updateInterval = 10;
   let vault;
 
   const waitBlockConfirmations = developmentChains.includes(network.name) ? 1 : VERIFICATION_BLOCK_CONFIRMATION;
@@ -24,6 +23,11 @@ module.exports = async ({getNamedAccounts, deployments}) => {
     waitBlockConfirmation: waitBlockConfirmations,
   });
 
+  // send Eth to contract on deployment
+  await signer.sendTransaction({
+    to: vault.address,
+    value: toWei(100),
+  });
   // verify the development
   if (!developmentChains.includes(network.name) && process.env.ETHERSCAN_API_KEY) {
     log("Verifying....");

@@ -11,8 +11,6 @@ contract Vault is KeeperCompatibleInterface {
         lastTimeStamp = block.timestamp;
     }
 
-    function deposit() external payable {}
-
     function balanceOf() external view returns (uint256) {
         return address(this).balance;
     }
@@ -33,7 +31,6 @@ contract Vault is KeeperCompatibleInterface {
             lastTimeStamp = block.timestamp;
             (bool success, ) = payable(owner).call{value: 0.1 ether}("");
             require(success, "failed to transfer ETH");
-            //payable(address(owner)).transfer(0.1 ether);
             counter++;
         }
     }

@@ -5,36 +5,6 @@ const {network, deployments, ethers} = require("hardhat");
 const {developmentChains, networkConfig} = require("../../helper-hardhat-config");
 const {fromWei, toWei} = require("../../helpers/helpers.js");
 
-// describe("Scheduled Keepers", function () {
-//   const interval = 30;
-//   const depositVal = ethers.utils.parseEther("1");
-//   async function setUpContractUtils() {
-//     const Vault = await ethers.getContractFactory("Vault");
-//     const vault = await Vault.deploy(interval);
-//     await vault.deployed();
-
-//     return {
-//       vault,
-//       vaultAdr: vault.address,
-//     };
-//   }
-
-//   describe("Scheduled Keepers", function () {
-//     it("deposits", async () => {
-//       const {vault} = await loadFixture(setUpContractUtils);
-//       // deposit 1 eth
-//       await vault.deposit({value: depositVal});
-//       // confirm balance
-//       expect(await vault.balanceOf()).to.eq(depositVal);
-//     });
-//     it("checksUpkeep, interval", async () => {
-//       const {vault} = await loadFixture(setUpContractUtils);
-//       //expect(await vault.checkUpkeep()).to.eq(false);
-//       expect(await vault.interval()).to.eq(30);
-//     });
-//   });
-// });
-
 !developmentChains.includes(network.name)
   ? describe.skip
   : describe("Vault Unit Tests", function () {
@@ -47,18 +17,14 @@ const {fromWei, toWei} = require("../../helpers/helpers.js");
         vault = vaultContract.connect(deployer);
         interval = await vault.getInterval();
         rewardAmount = 0.1;
-
-        // send Eth to contract
-        await deployer.sendTransaction({
-          to: vault.address,
-          value: toWei(100),
-        });
       });
       describe("constructor", function () {
         it("initializes the Vault correctly", async () => {
           assert.equal(interval, networkConfig[network.config.chainId]["keepersUpdateInterval"]);
           const owner = await vault.owner();
+          const balance = await vault.getBalance();
           assert.equal(owner, deployer.address);
+          assert.equal(fromWei(balance), 100); // balance upon deployment
         });
       });
       describe("checkUpkeep", async () => {
