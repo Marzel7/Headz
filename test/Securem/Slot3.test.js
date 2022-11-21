@@ -74,9 +74,10 @@ const {keccak256} = require("ethers/lib/utils");
           const mapping2slot = await slot3Contract.mappingSlotLocation(6, acc2.address);
 
           // print out non contiguosly slot locations
-          console.log(BigNumber.from(mapping0slot).toString());
-          console.log(BigNumber.from(mapping1slot).toString());
-          console.log(BigNumber.from(mapping2slot).toString());
+          expect(await slot3Contract.getValue(mapping0slot)).to.eq(99);
+          // console.log(BigNumber.from(mapping0slot).toString());
+          // console.log(BigNumber.from(mapping1slot).toString());
+          // console.log(BigNumber.from(mapping2slot).toString());
         });
       });
     });
