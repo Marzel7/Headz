@@ -79,20 +79,61 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
           await inSecureumNFT.startSale(salePrice);
         });
 
+        it("Refunds excess ETH paid by buyer", async () => {
+          const depositVal = toWei(10);
+          await inSecureumNFT.startSale(salePrice);
+          const balance = await contractBalance(acc1.address);
+
+          await inSecureumNFT.connect(acc1).mint({value: depositVal});
+          const newBalance = await contractBalance(acc1.address);
+
+          // New balance is greater as excess Eth deposit is refunded
+          expect(Number(fromWei(newBalance))).to.be.gt(Number(fromWei(balance)) - Number(fromWei(depositVal)));
+        });
+
         it("susceptible to reentrancy, use callback from ERC721 OnReceived", async () => {
           const transactionResponse = await attackInSecureumNFT.exploitMint({value: toWei(1)});
           const transactionReceipt = await transactionResponse.wait();
           id = transactionReceipt.events[0].args.id; // successfully minted with low traits
           expect(await inSecureumNFT.idToOwners(id)).to.eq(attackInSecureumNFT.address);
         });
+        it("contract not exploited, confirms balances ", async () => {
+          const depositAmount = toWei(1);
+          let contractBal = await contractBalance(inSecureumNFT.address);
+          let acc1Bal = await contractBalance(acc1.address);
+          let beneficaryBal = await contractBalance(deployer.address);
 
-        it("Refunds excess ETH paid by buyer", async () => {
-          // await inSecureumNFT.startSale(salePrice);
-          // const balance = await contractBalance(acc1.address);
-          // console.log(Number(fromWei(balance)));
-          // await inSecureumNFT.connect(acc1).mint({value: toWei(10)});
-          // const newBalance = await contractBalance(acc1.address);
-          // console.log(Number(fromWei(newBalance)));
+          await inSecureumNFT.connect(acc1).mint({value: depositAmount});
+          contractBalAfterMint = await contractBalance(inSecureumNFT.address);
+          acc1BalAfterMint = await contractBalance(acc1.address);
+          beneficaryBalAfterMint = await contractBalance(deployer.address);
+
+          // contract balance refunds excess ETH, funds beneficary
+          expect(contractBal).to.eq(contractBalAfterMint);
+          // acc1 balance has reduced 1 ETH plus Gas
+          expect(acc1Bal).to.be.gt(acc1BalAfterMint.add(depositAmount));
+          // deposit has been funded to beneficary
+          expect(beneficaryBalAfterMint).to.be.gt(beneficaryBal);
+        });
+        it("susceptible to reentrancy, mints at zero cost, acts as beneficary", async () => {
+          const depositVal = toWei(1);
+          // balances
+          const beneficaryBal = await contractBalance(deployer.address);
+          const attackBal = await contractBalance(attackInSecureumNFT.address);
+          const transactionResponse = await attackInSecureumNFT.exploitMint({value: depositVal});
+          const transactionReceipt = await transactionResponse.wait();
+          id = transactionReceipt.events[0].args.id; // successfully minted with low traits
+
+          const attackBalAfterMint = await contractBalance(attackInSecureumNFT.address);
+          const beneficaryBalAfterMint = await contractBalance(deployer.address);
+          // Proof attacking contract is owner of tokenId
+          expect(await inSecureumNFT.idToOwners(id)).to.eq(attackInSecureumNFT.address);
+          // attacking contract acts as beneficary, deposit is refunded, plus the remaining contract balance
+          expect(attackBalAfterMint).to.be.gt(attackBal);
+          // beneficary does not receive deposited amount
+          expect(Number(fromWei(beneficaryBal))).to.be.lessThan(
+            Number(fromWei(beneficaryBalAfterMint)) + Number(fromWei(depositVal))
+          );
         });
       });
     });
