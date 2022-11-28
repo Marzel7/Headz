@@ -19,7 +19,7 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 !developmentChains.includes(network.name)
   ? describe.skip
   : describe("Securem slot8 unit tests", function () {
-      let inSecureumNFT, deployer, acc1, acc2, salePrice;
+      let inSecureumNFT, attackInSecureumNFT, deployer, acc1, acc2, salePrice;
 
       beforeEach(async () => {
         [deployer, acc1, acc2] = await ethers.getSigners();
@@ -64,12 +64,12 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
       });
 
       describe("InSecureumNFT contract ", function () {
-        it("susceptible to reentrancy", async () => {
+        beforeEach(async () => {
           // Pass in attack contract to become beneficiary
           const InSecureumNFT = await ethers.getContractFactory("InSecureumNFT");
           (inSecureumNFT = await InSecureumNFT.deploy(deployer.address)), {gasLimit: 100000};
           const AttackInSecureumNFT = await ethers.getContractFactory("AttackInSecureumNFT");
-          const attackInSecureumNFT = await AttackInSecureumNFT.deploy(inSecureumNFT.address);
+          attackInSecureumNFT = await AttackInSecureumNFT.deploy(inSecureumNFT.address);
 
           // attacking contract requires funds
           await attackInSecureumNFT.connect(deployer).deposit({value: toWei(100)});
@@ -77,43 +77,22 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
           // Start Sale
           await inSecureumNFT.startSale(salePrice);
-          // non-malicious users Mint NFTs
+        });
 
-          // repeatidly call mint, revert if NFT id is too high, therefore less rare
-          let success = false;
-          let retry = 0;
-          let ids = [];
-          while (!success && retry < 5) {
-            try {
-              const transactionResponse = await attackInSecureumNFT.exploitMint({value: toWei(1)});
-              const transactionReceipt = await transactionResponse.wait();
-              id = transactionReceipt.events[0].args.id;
+        it("susceptible to reentrancy, use callback from ERC721 OnReceived", async () => {
+          const transactionResponse = await attackInSecureumNFT.exploitMint({value: toWei(1)});
+          const transactionReceipt = await transactionResponse.wait();
+          id = transactionReceipt.events[0].args.id; // successfully minted with low traits
+          expect(await inSecureumNFT.idToOwners(id)).to.eq(attackInSecureumNFT.address);
+        });
 
-              console.log("successful mint, id", Number(id));
-              expect(await inSecureumNFT.idToOwners(id)).to.eq(attackInSecureumNFT.address);
-              break;
-            } catch (e) {
-              // NFT id is too high, tx will have reverted, try again
-
-              let id = parseInt(e.message.substring(86, 87));
-              console.log("unsuccessful mint attempt, id", id);
-              ids.push(id);
-              retry++;
-            }
-          }
-          // verify
-          for (let i = 0; i++; i <= ids.length) {
-            expect(await inSecureumNFT.idToOwners(ids[i])).to.eq(ZERO_ADDRESS);
-          }
-
-          it("Refunds excess ETH paid by buyer", async () => {
-            await inSecureumNFT.startSale(salePrice);
-            const balance = await contractBalance(acc1.address);
-            console.log(Number(fromWei(balance)));
-            await inSecureumNFT.connect(acc1).mint({value: toWei(10)});
-            const newBalance = await contractBalance(acc1.address);
-            console.log(Number(fromWei(newBalance)));
-          });
+        it("Refunds excess ETH paid by buyer", async () => {
+          // await inSecureumNFT.startSale(salePrice);
+          // const balance = await contractBalance(acc1.address);
+          // console.log(Number(fromWei(balance)));
+          // await inSecureumNFT.connect(acc1).mint({value: toWei(10)});
+          // const newBalance = await contractBalance(acc1.address);
+          // console.log(Number(fromWei(newBalance)));
         });
       });
     });
