@@ -136,41 +136,18 @@ async function getPermitSignature(signer, token, spender, value, deadline) {
             "ERC20: insufficient allowance"
           );
         });
+
         it("Invokes TokenV1 fallback, admin approved", async () => {
           // Grant vault Migrator role
           await tokenV1.grantRole(migratorRole, vault.address);
           expect(await tokenV1.hasRole(migratorRole, vault.address)).to.eq(true);
-
           const amount = 100;
           const deadline = ethers.constants.MaxUint256;
           const {v, r, s} = await getPermitSignature(signer, tokenV1, vault.address, amount, deadline);
-
           // tokenV1 is not exposed to Permit approval, so deposits with Permit will fail
           await expect(
             vault.depositWithPermit(signer.address, amount, deadline, v, r, s, user1.address)
           ).to.be.revertedWith("MIGRATION CALL FAILED");
-        });
-        it("", async () => {
-          await tokenV1.grantRole(migratorRole, tokenV2.address);
-          const amount = 100;
-          const deadline = ethers.constants.MaxUint256;
-          const {v, r, s} = await getPermitSignature(signer, tokenV1, vault.address, amount, deadline);
-
-          let data = abi.encodeWithSignature(
-            "depositWithPermit(address,address, uint256, uint256, uint8, bytes32, bytes32)",
-            signer.address,
-            amount,
-            deadline,
-            v,
-            r,
-            s,
-            user1.address
-          );
-
-          / * TODO */;
-          // call TokenV2 using abi.encodeWithSignature to invoke T1 fallback
-
-          //await tokenV2.depositWithPermit(signer.address, amount, deadline, v, r, s, user1.address);
         });
       });
 
@@ -206,6 +183,33 @@ async function getPermitSignature(signer, token, spender, value, deadline) {
           // TokenV1 is still underlying, calls are delegated to PermitModule
           // by abusing fallback functions
           expect(await vault.UNDERLYING()).to.eq(tokenV2.address);
+        });
+
+        it("Vault deployed with Token V2, using encoded data", async () => {
+          const Vault = await ethers.getContractFactory("VaultV1");
+          vault = await Vault.deploy(tokenV2.address);
+          await vault.deployed();
+
+          // grant Migrator _Role to TokenV2, to expose fallback functions
+          await tokenV1.grantRole(migratorRole, tokenV2.address);
+
+          const amount = 100;
+          const deadline = ethers.constants.MaxUint256;
+          const {v, r, s} = await getPermitSignature(signer, tokenV1, vault.address, amount, deadline);
+
+          function encodeData(contract, functionName, args) {
+            const func = contract.interface.getFunction(functionName);
+            return contract.interface.encodeFunctionData(func, args);
+          }
+          async function depositWithPermit(target, amount, deadline, v, r, s, to) {
+            const data = encodeData(Vault, "depositWithPermit", [target, amount, deadline, v, r, s, to]);
+            return signer.sendTransaction({
+              to: vault.address,
+              data: data,
+              gasLimit: 300000,
+            });
+          }
+          await depositWithPermit(signer.address, amount, deadline, v, r, s, user1.address);
         });
       });
     });
