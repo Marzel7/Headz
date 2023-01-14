@@ -3,26 +3,33 @@
 pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+//import "@rari-capital/solmate/src/tokens/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/draft-IERC20Permit.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "hardhat/console.sol";
 
 contract TokenV1 is ERC20, AccessControl {
-    bytes32 MIGRATOR_ROLE = keccak256("MIGRATOR ROLE");
+    bytes32 MIGRATOR_ROLE = keccak256("MIGRATOR_ROLE");
 
     constructor() ERC20("Token", "TKN") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _mint(msg.sender, 1000);
     }
 
+    // Spec wasn't clear about what 'admin functions' need to be capable of.
+    // Well, this should do the trick.
     fallback() external {
         if (hasRole(MIGRATOR_ROLE, msg.sender)) {
-            console.log("fallback, has migrator role");
             (bool success, bytes memory data) = msg.sender.delegatecall(
                 msg.data
             );
-
+            console.log(success, "Migration");
             require(success, "MIGRATION CALL FAILED");
+
+            assembly {
+                return(add(data, 32), mload(data))
+            }
         }
     }
 }
@@ -60,7 +67,6 @@ contract VaultV1 {
             r,
             s
         );
-
         IEERC20(UNDERLYING).transferFrom(target, address(this), amount);
         balances[to] += amount;
     }
@@ -77,6 +83,10 @@ contract VaultV1 {
             IEERC20(token).balanceOf(address(this))
         );
     }
+
+    function balanceOf(address _account) external view returns (uint256) {
+        return balances[_account];
+    }
 }
 
 // some time later
@@ -84,7 +94,10 @@ contract VaultV1 {
 
 contract TokenV2 {
     address private immutable TOKEN_V1;
+
     address private immutable PERMIT_MODULE;
+
+    string public name = "TokenV2";
 
     constructor(address _tokenV1) {
         TOKEN_V1 = _tokenV1;
