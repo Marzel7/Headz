@@ -1,21 +1,7 @@
-const {assert, expect, AssertionError} = require("chai");
-const {network, deployments, ethers} = require("hardhat");
+const {expect} = require("chai");
+const {network, ethers} = require("hardhat");
 const {developmentChains} = require("../../helper-hardhat-config");
 const {BigNumber, utils} = require("ethers");
-const {
-  fromWei,
-  contractBalance,
-  contractCode,
-  getBytePackedVar,
-  getArrayItem,
-  getUint256,
-  getMappingItem,
-  toWei,
-} = require("../../helpers/helpers.js");
-const {deploy} = require("@openzeppelin/hardhat-upgrades/dist/utils");
-const {TASK_DEPLOY} = require("hardhat-deploy");
-const {makeValidateUpgrade} = require("@openzeppelin/hardhat-upgrades/dist/validate-upgrade");
-const {keccak256, toUtf8CodePoints} = require("ethers/lib/utils");
 
 async function getPermitSignature(signer, token, spender, value, deadline) {
   const [nonce, name, version, chainId] = await Promise.all([
@@ -68,27 +54,25 @@ async function getPermitSignature(signer, token, spender, value, deadline) {
   );
 }
 
+async function encodeData(contract, functionName, args) {
+  const func = contract.interface.getFunction(functionName);
+  return contract.interface.encodeFunctionData(func, args);
+}
+
 !developmentChains.includes(network.name)
   ? describe.skip
   : describe("Race12 unit tests", function () {
-      let mastercopy,
-        proxy,
-        signer,
-        acc1,
-        acc2,
+      let signer,
         tokenV1,
         tokenV2,
         vault,
         permitModule,
         verifySignature,
-        verifier,
         totalSupply,
-        migratorRole;
-
-      // temp values from remix
-      const r = "0x71e4794c81c2014ec8ebabe5d17107e8f0ae62f87d6d2059cda8bdb4aa498ef1";
-      const s = "0x44a70d2d2caeb2cc9a4704dfd58900db6e75633eb0b78787670cb93e5ce946d7";
-      const v = 27;
+        funtionSelector,
+        migratorRole,
+        depositAmount,
+        deadline;
 
       beforeEach(async () => {
         totalSupply = 1000;
@@ -109,12 +93,17 @@ async function getPermitSignature(signer, token, spender, value, deadline) {
         const VerifySignature = await ethers.getContractFactory("VerifySignatureP");
         verifySignature = await VerifySignature.deploy();
 
+        const FuntionSelector = await ethers.getContractFactory("FuntionSelector");
+        funtionSelector = await FuntionSelector.deploy();
+
+        depositAmount = 100;
+        deadline = ethers.constants.MaxUint256;
+
         migratorRole = utils.keccak256(utils.toUtf8Bytes("MIGRATOR_ROLE"));
       });
 
       describe("Token V1 callbacks", function () {
         it("Confirms admin roles", async () => {
-          // await verifySignature.getMessageHash();
           let adminRole = await tokenV1.DEFAULT_ADMIN_ROLE();
           // signer has admin role
           expect(await tokenV1.hasRole(adminRole, signer.address)).to.eq(true);
@@ -129,24 +118,27 @@ async function getPermitSignature(signer, token, spender, value, deadline) {
         });
 
         it("Invokes TokenV1 fallback, not admin approved", async () => {
+          const {v, r, s} = await getPermitSignature(signer, tokenV1, vault.address, depositAmount, deadline);
+
           // Token V1s fallback is invoked
           // Caller is not migrator so delegateCall isn't executed
           // Execution continues and reverts as Vault isn't approved for Underlying Token transfers
-          await expect(vault.depositWithPermit(signer.address, 10, 100, v, r, s, vault.address)).to.be.revertedWith(
-            "ERC20: insufficient allowance"
-          );
+
+          await expect(
+            vault.depositWithPermit(signer.address, depositAmount, deadline, v, r, s, vault.address)
+          ).to.be.revertedWith("ERC20: insufficient allowance");
         });
 
         it("Invokes TokenV1 fallback, admin approved", async () => {
           // Grant vault Migrator role
           await tokenV1.grantRole(migratorRole, vault.address);
           expect(await tokenV1.hasRole(migratorRole, vault.address)).to.eq(true);
-          const amount = 100;
-          const deadline = ethers.constants.MaxUint256;
-          const {v, r, s} = await getPermitSignature(signer, tokenV1, vault.address, amount, deadline);
+
+          const {v, r, s} = await getPermitSignature(signer, tokenV1, vault.address, depositAmount, deadline);
+
           // tokenV1 is not exposed to Permit approval, so deposits with Permit will fail
           await expect(
-            vault.depositWithPermit(signer.address, amount, deadline, v, r, s, user1.address)
+            vault.depositWithPermit(signer.address, depositAmount, deadline, v, r, s, user1.address)
           ).to.be.revertedWith("MIGRATION CALL FAILED");
         });
       });
@@ -163,22 +155,19 @@ async function getPermitSignature(signer, token, spender, value, deadline) {
           // grant Migrator _Role to TokenV2, to expose fallback functions
           await tokenV1.grantRole(migratorRole, tokenV2.address);
 
-          const amount = 100;
-          const deadline = ethers.constants.MaxUint256;
-
           // balances
           expect(await tokenV1.balanceOf(vault.address)).to.eq(0);
           expect(await tokenV1.balanceOf(signer.address)).to.eq(1000);
           expect(await vault.balanceOf(user1.address)).to.eq(0);
 
           // Invoke T2 fallback, in turn invokes T1 fallback to delegatecall back
-          const {v, r, s} = await getPermitSignature(signer, tokenV1, vault.address, amount, deadline);
-          const tx = await vault.depositWithPermit(signer.address, amount, deadline, v, r, s, user1.address);
+          const {v, r, s} = await getPermitSignature(signer, tokenV1, vault.address, depositAmount, deadline);
+          const tx = await vault.depositWithPermit(signer.address, depositAmount, deadline, v, r, s, user1.address);
 
           // balances after depositWithPermit
-          expect(await tokenV1.balanceOf(vault.address)).to.eq(100);
+          expect(await tokenV1.balanceOf(vault.address)).to.eq(depositAmount);
           expect(await tokenV1.balanceOf(signer.address)).to.eq(900);
-          expect(await vault.balanceOf(user1.address)).to.eq(100);
+          expect(await vault.balanceOf(user1.address)).to.eq(depositAmount);
 
           // TokenV1 is still underlying, calls are delegated to PermitModule
           // by abusing fallback functions
@@ -193,23 +182,85 @@ async function getPermitSignature(signer, token, spender, value, deadline) {
           // grant Migrator _Role to TokenV2, to expose fallback functions
           await tokenV1.grantRole(migratorRole, tokenV2.address);
 
-          const amount = 100;
-          const deadline = ethers.constants.MaxUint256;
-          const {v, r, s} = await getPermitSignature(signer, tokenV1, vault.address, amount, deadline);
+          const {v, r, s} = await getPermitSignature(signer, tokenV1, vault.address, depositAmount, deadline);
 
-          function encodeData(contract, functionName, args) {
-            const func = contract.interface.getFunction(functionName);
-            return contract.interface.encodeFunctionData(func, args);
-          }
-          async function depositWithPermit(target, amount, deadline, v, r, s, to) {
-            const data = encodeData(Vault, "depositWithPermit", [target, amount, deadline, v, r, s, to]);
+          async function depositWithPermit(target, depositAmount, deadline, v, r, s, to) {
+            const data = encodeData(Vault, "depositWithPermit", [target, depositAmount, deadline, v, r, s, to]);
             return signer.sendTransaction({
               to: vault.address,
               data: data,
               gasLimit: 300000,
             });
           }
-          await depositWithPermit(signer.address, amount, deadline, v, r, s, user1.address);
+          await depositWithPermit(signer.address, depositAmount, deadline, v, r, s, user1.address);
+        });
+      });
+
+      describe("Validates function data", async () => {
+        it("Validates function parameters", async () => {
+          const Vault = await ethers.getContractFactory("VaultV1");
+          vault = await Vault.deploy(tokenV2.address);
+          await vault.deployed();
+
+          // grant Migrator _Role to TokenV2, to expose fallback functions
+          await tokenV1.grantRole(migratorRole, tokenV2.address);
+
+          const {v, r, s} = await getPermitSignature(signer, tokenV1, vault.address, depositAmount, deadline);
+
+          async function depositWithPermit(target, depositAmount, deadline, v, r, s, to) {
+            const data = encodeData(Vault, "depositWithPermit", [target, depositAmount, deadline, v, r, s, to]);
+            return data;
+          }
+          let data = await depositWithPermit(signer.address, depositAmount, deadline, v, r, s, user1.address);
+
+          //0x81a37c18000000000000000000000000// - function selector
+          //f39fd6e51aad88f6f4ce6ab8827279cfffb92266//   - sending address
+          //0000000000000000000000000000000000000000000000000000000000000064//  - depositAmount
+          //ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff//   - deadline
+          //000000000000000000000000000000000000000000000000000000000000001 // v
+          //b62d23473e2bb6aa1c8e3338da1590778aee73124c8d4c173b5816dd652cd9103 // r
+          //892dae01546a67f7a4b9ff849fdc9ae9eb2b102b87939c8422d9b0ae2b5e58a00 // s
+          //000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8 //  - receiving address
+
+          // function selector
+          const selector = data.slice(0, 10);
+          expect(selector).to.eq(
+            await funtionSelector.getSelector(
+              "depositWithPermit(address,uint256,uint256,uint8,bytes32,bytes32,address)"
+            )
+          );
+          // sending address
+          const senderAddress = data.slice(34, 74);
+          const adr = signer.address.toLowerCase();
+          expect(senderAddress).to.eq(adr.slice(2, 42));
+
+          // depositAmount
+          const depositAmountBytes = data.slice(74, 138);
+          expect(parseInt(depositAmountBytes, 16)).to.eq(depositAmount);
+
+          // deadline
+          const deadlineBytes = data.slice(140, 202);
+          let deadlineTruncate = utils.hexZeroPad(BigNumber.from(deadline).toHexString(), 32);
+          expect(deadlineBytes).to.eq(deadlineTruncate.slice(2, 64));
+
+          // v, r, s
+          const vBytes = data.slice(204, 266);
+          expect(parseInt(vBytes, 16)).to.eq(v);
+
+          const rBytes = data.slice(266, 330);
+          expect(rBytes).to.eq(r.slice(2, 66));
+
+          const sBytes = data.slice(330, 394);
+          expect(sBytes).to.eq(s.slice(2, 66));
+
+          // receiver address
+          const receiverAddress = data.slice(418, 460);
+          const to = user1.address.toLowerCase();
+          expect(receiverAddress).to.eq(to.slice(2, 42));
+
+          // The function selector has to match "depositWithPermit(address,uint256,uint256,uint8,bytes32,bytes32,address)" to successfully delegateCalls
+          // Calling the fallback directly won't match the selector and inevitably fail
+          // Therefore we require a contract with depositWithPermit, in this case the Vault contract
         });
       });
     });
