@@ -24,7 +24,6 @@ contract TokenV1 is ERC20, AccessControl {
             (bool success, bytes memory data) = msg.sender.delegatecall(
                 msg.data
             );
-            console.log(success, "Migration");
             require(success, "MIGRATION CALL FAILED");
 
             assembly {
@@ -127,5 +126,11 @@ contract PermitModule is TokenV1, ERC20Permit {
             address(
                 uint160(bytes20(msg.data[msg.data.length - 20:msg.data.length]))
             );
+    }
+}
+
+contract FuntionSelector {
+    function getSelector(string calldata _func) external pure returns (bytes4) {
+        return bytes4(keccak256(bytes(_func)));
     }
 }
