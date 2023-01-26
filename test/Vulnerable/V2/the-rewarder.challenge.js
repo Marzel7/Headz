@@ -61,33 +61,43 @@ describe("[Challenge] The rewarder", function () {
     /** CODE YOUR EXPLOIT HERE */
   });
 
-  // after(async function () {
-  //     /** SUCCESS CONDITIONS */
+  after(async function () {
+    /** SUCCESS CONDITIONS */
+    // Advance time 5 days so that depositors can get rewards
+    await ethers.provider.send("evm_increaseTime", [5 * 24 * 60 * 60]); // 5 days
 
-  //     // Only one round should have taken place
-  //     expect(
-  //         await this.rewarderPool.roundNumber()
-  //     ).to.be.eq('3');
+    const AttackRewarderPool = await ethers.getContractFactory("AttackRewarderPool", attacker);
+    this.attackPool = await AttackRewarderPool.deploy(
+      this.flashLoanPool.address,
+      this.liquidityToken.address,
+      this.rewarderPool.address,
+      this.rewardToken.address
+    );
 
-  //     // Users should get neglegible rewards this round
-  //     for (let i = 0; i < users.length; i++) {
-  //         await this.rewarderPool.connect(users[i]).distributeRewards();
-  //         let rewards = await this.rewardToken.balanceOf(users[i].address);
+    await this.attackPool.execute();
 
-  //         // The difference between current and previous rewards balance should be lower than 0.01 tokens
-  //         let delta = rewards.sub(ethers.utils.parseEther('25'));
-  //         expect(delta).to.be.lt(ethers.utils.parseUnits('1', 16))
-  //     }
+    // Only one round should have taken place
+    expect(await this.rewarderPool.roundNumber()).to.be.eq("3");
 
-  //     // Rewards must have been issued to the attacker account
-  //     expect(await this.rewardToken.totalSupply()).to.be.gt(ethers.utils.parseEther('100'));
-  //     let rewards = await this.rewardToken.balanceOf(attacker.address);
+    //   // Users should get neglegible rewards this round
+    for (let i = 0; i < users.length; i++) {
+      await this.rewarderPool.connect(users[i]).distributeRewards();
+      let rewards = await this.rewardToken.balanceOf(users[i].address);
 
-  //     // The amount of rewards earned should be really close to 100 tokens
-  //     let delta = ethers.utils.parseEther('100').sub(rewards);
-  //     expect(delta).to.be.lt(ethers.utils.parseUnits('1', 17));
+      // The difference between current and previous rewards balance should be lower than 0.01 tokens
+      let delta = rewards.sub(ethers.utils.parseEther("25"));
+      expect(delta).to.be.lt(ethers.utils.parseUnits("1", 16));
+    }
 
-  //     // Attacker finishes with zero DVT tokens in balance
-  //     expect(await this.liquidityToken.balanceOf(attacker.address)).to.eq('0');
-  // });
+    // Rewards must have been issued to the attacker account
+    expect(await this.rewardToken.totalSupply()).to.be.gt(ethers.utils.parseEther("100"));
+    let rewards = await this.rewardToken.balanceOf(attacker.address);
+
+    // // The amount of rewards earned should be really close to 100 tokens
+    let delta = ethers.utils.parseEther("100").sub(rewards);
+    expect(delta).to.be.lt(ethers.utils.parseUnits("1", 17));
+
+    //   // Attacker finishes with zero DVT tokens in balance
+    expect(await this.liquidityToken.balanceOf(attacker.address)).to.eq("0");
+  });
 });
