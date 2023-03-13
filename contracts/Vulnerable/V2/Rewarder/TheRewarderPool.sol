@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "./RewardToken.sol";
 import "../DamnValuableToken.sol";
 import "./AccountingToken.sol";
+import "hardhat/console.sol";
 
 contract TheRewarderPool {
     // Minimum duration of each round of rewards in seconds
