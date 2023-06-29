@@ -1,8 +1,11 @@
-require("@nomiclabs/hardhat-waffle");
+//require("@nomiclabs/hardhat-waffle");
 require("dotenv").config();
 require("@nomiclabs/hardhat-etherscan");
 require("hardhat-gas-reporter");
 require("@openzeppelin/hardhat-upgrades");
+require("hardhat-deploy");
+require("@nomicfoundation/hardhat-chai-matchers");
+
 // This is a sample Hardhat task. To learn how to create your own go to
 // https://hardhat.org/guides/create-task.html
 task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
@@ -23,7 +26,7 @@ module.exports = {
   solidity: "0.8.4",
   defaultNetwork: "hardhat",
   networks: {
-    localhost: {},
+    localhost: {chainId: 31337},
     forkingMainnet: {
       url: "http://127.0.0.1:8545",
       forking: {
@@ -32,7 +35,8 @@ module.exports = {
       },
     },
     hardhat: {
-      chainId: 1337,
+      chainId: 31337,
+      allowUnlimitedContractSize: true,
     },
     rinkeby: {
       url: process.env.RINKEBY_RPC,
@@ -41,20 +45,71 @@ module.exports = {
     polygon_mumbai: {
       url: process.env.POLYGON_MUMBAI_RPC,
       accounts: [process.env.PRIVATE_KEY],
+      chainId: 137,
     },
     goerli: {
       url: process.env.GOERLI_RPC,
       accounts: [process.env.PRIVATE_KEY],
+      chainId: 5,
     },
-    // depreciated networks
-    // kovan: {
-    //   url: process.env.KOVAN_RPC,
-    //   accounts: [process.env.PRIVATE_KEY]
-    // },
-    // ropsten: {
-    //   url: process.env.ROPSTEN_RPC,
-    //   accounts: [process.env.PRIVATE_KEY]
-    //},
+  },
+  solidity: {
+    compilers: [
+      {
+        version: "0.8.7",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+      {
+        version: "0.8.12",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+      {
+        version: "0.8.17",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+      {
+        version: "0.6.0",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+      {
+        version: "0.7.0",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+      {
+        version: "0.6.6",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+    ],
   },
   // paths: {
   //   artifacts: "./src/frontend/contracts/artifacts",
@@ -62,4 +117,14 @@ module.exports = {
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY,
   },
+  namedAccounts: {
+    deployer: {
+      default: 0, // defaults to first account as deployer
+      1: 0, // mainnet - takes first account as deployer
+    },
+    player: {
+      default: 1,
+    },
+  },
+  deployments: {},
 };

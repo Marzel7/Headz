@@ -1,0 +1,58 @@
+{
+  "address": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address payable",
+          "name": "toDestruct",
+          "type": "address"
+        }
+      ],
+      "name": "destroy",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ],
+  "transactionHash": "0x626805fd6849874288d668a795e1d7b97a5144473e421d826c6af2ea9bcbab9e",
+  "receipt": {
+    "to": null,
+    "from": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "contractAddress": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+    "transactionIndex": 0,
+    "gasUsed": "92919",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x5419eff3f5e205c3ddfb0476ed852167a72b0e5c6f2d8bdee4468580a7c2106f",
+    "transactionHash": "0x626805fd6849874288d668a795e1d7b97a5144473e421d826c6af2ea9bcbab9e",
+    "logs": [],
+    "blockNumber": 11,
+    "cumulativeGasUsed": "92919",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "ad51ab6ed20cdbe4796efd0b009d014e",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.12+commit.f00d7308\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address payable\",\"name\":\"toDestruct\",\"type\":\"address\"}],\"name\":\"destroy\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"stateMutability\":\"payable\",\"type\":\"receive\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/Securem/SelfDestruct.sol\":\"SelfDestruct\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/Securem/SelfDestruct.sol\":{\"content\":\"// SPDX-License-Identifier: MIT\\n\\npragma solidity ^0.8.0;\\n\\ncontract SelfDestruct {\\n    function destroy(address payable toDestruct) external {\\n        selfdestruct(payable(toDestruct));\\n    }\\n\\n    receive() external payable {}\\n}\\n\",\"keccak256\":\"0x98003bf1d2181bc9b901b1a88b83b81b56448e47d0b67f3bd57ccf50bde21c88\",\"license\":\"MIT\"}},\"version\":1}",
+  "bytecode": "0x608060405234801561001057600080fd5b5060b78061001f6000396000f3fe608060405260043610601f5760003560e01c8062f55d9d14602a57600080fd5b36602557005b600080fd5b348015603557600080fd5b50604560413660046053565b6047565b005b806001600160a01b0316ff5b600060208284031215606457600080fd5b81356001600160a01b0381168114607a57600080fd5b939250505056fea26469706673582212205ae6dfdbfc1a3fcb4a75c15f8b38e48d11883da537e45a43b5e33e89234d9eff64736f6c634300080c0033",
+  "deployedBytecode": "0x608060405260043610601f5760003560e01c8062f55d9d14602a57600080fd5b36602557005b600080fd5b348015603557600080fd5b50604560413660046053565b6047565b005b806001600160a01b0316ff5b600060208284031215606457600080fd5b81356001600160a01b0381168114607a57600080fd5b939250505056fea26469706673582212205ae6dfdbfc1a3fcb4a75c15f8b38e48d11883da537e45a43b5e33e89234d9eff64736f6c634300080c0033",
+  "devdoc": {
+    "kind": "dev",
+    "methods": {},
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

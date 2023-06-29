@@ -83,7 +83,7 @@ contract Race4 is Context, IERC20, IERC20Metadata {
         if (currentAllowance != type(uint256).max) {
             // infinite approval
             unchecked {
-                // undeflows not checked
+                // underflows not checked
                 _approve(sender, _msgSender(), currentAllowance - amount);
             }
         }
@@ -91,10 +91,11 @@ contract Race4 is Context, IERC20, IERC20Metadata {
         return true;
     }
 
-    function increaseAllowance(
-        address spender,
-        uint256 addedValue // What if this value is negative ?? its unsigned mate
-    ) public virtual returns (bool) {
+    function increaseAllowance(address spender, uint256 addedValue)
+        public
+        virtual
+        returns (bool)
+    {
         _approve(
             _msgSender(),
             spender,
@@ -139,8 +140,8 @@ contract Race4 is Context, IERC20, IERC20Metadata {
     function _mint(address account, uint256 amount) external virtual {
         // external ??
         _totalSupply += amount;
-        _balances[account] = amount; // _balances[account] += amount
-        emit Transfer(address(0), account, amount); // Why address(0) ???
+        _balances[account] = amount;
+        emit Transfer(address(0), account, amount);
     }
 
     function _burn(address account, uint256 amount) internal virtual {
@@ -179,4 +180,8 @@ contract Race4X {
     function getTotalSupply() public view returns (uint256) {
         return totalSupply;
     }
+
+
+
+   
 }

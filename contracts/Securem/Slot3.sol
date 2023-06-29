@@ -1,5 +1,6 @@
 //SPDX-License-Identifier:MIT
 pragma solidity ^0.8.0;
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "hardhat/console.sol";
 
 contract Slot3 {
@@ -17,6 +18,8 @@ contract Slot3 {
     IntegerStruct private integerStruct;
 
     mapping(address => uint256) userAddr;
+
+    IERC721 erc721;
 
     // if searching a random location, slot returns 0 if empty
     function getValue(uint256 atSlot) external view returns (uint256 value) {

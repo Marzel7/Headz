@@ -123,6 +123,7 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
           const transactionResponse = await attackInSecureumNFT.exploitMint({value: depositVal});
           const transactionReceipt = await transactionResponse.wait();
           id = transactionReceipt.events[0].args.id; // successfully minted with low traits
+          console.log(transactionReceipt);
 
           const attackBalAfterMint = await contractBalance(attackInSecureumNFT.address);
           const beneficaryBalAfterMint = await contractBalance(deployer.address);

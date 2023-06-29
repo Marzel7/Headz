@@ -15,14 +15,17 @@ const {keccak256} = require("ethers/lib/utils");
 
 !developmentChains.includes(network.name)
   ? describe.skip
-  : describe("Securem slot2 unit tests", function () {
-      let slot3Contract, contractA, contractB, deployer, acc1, acc2;
+  : describe("Securem slot3 unit tests", function () {
+      let slot3Contract, contractA, contractB, deployer, acc1, acc2, erc721;
 
       beforeEach(async () => {
         [deployer, acc1, acc2] = await ethers.getSigners();
         const Slot2Contract = await ethers.getContractFactory("Slot3");
         slot3Contract = await Slot2Contract.deploy();
         /////////////////////////////////////////////////////////////////////
+        const ERC721 = await ethers.getContractFactory("Headz");
+        erc721 = await ERC721.deploy("Headz", "HDZ");
+        await erc721.deployed();
       });
 
       describe("slot allocation", function () {
@@ -62,9 +65,13 @@ const {keccak256} = require("ethers/lib/utils");
           await slot3Contract.setUserAddress(acc1.address, 98);
           await slot3Contract.setUserAddress(acc2.address, 97);
 
-          expect(parseInt(await getMappingItem(6, slot3Contract.address, deployer.address)), 16).to.eq(99);
-          expect(parseInt(await getMappingItem(6, slot3Contract.address, acc1.address)), 16).to.eq(98);
-          expect(parseInt(await getMappingItem(6, slot3Contract.address, acc2.address)), 16).to.eq(97);
+          const mapping0slotVal = 99;
+          const mapping1slotVal = 98;
+          const mapping2slotVal = 97;
+
+          expect(parseInt(await getMappingItem(6, slot3Contract.address, deployer.address)), 16).to.eq(mapping0slotVal);
+          expect(parseInt(await getMappingItem(6, slot3Contract.address, acc1.address)), 16).to.eq(mapping1slotVal);
+          expect(parseInt(await getMappingItem(6, slot3Contract.address, acc2.address)), 16).to.eq(mapping2slotVal);
 
           // slot 6 mapping is still empty
           expect(await slot3Contract.getValue(6)).to.eq(0);
@@ -72,12 +79,32 @@ const {keccak256} = require("ethers/lib/utils");
           const mapping0slot = await slot3Contract.mappingSlotLocation(6, deployer.address);
           const mapping1slot = await slot3Contract.mappingSlotLocation(6, acc1.address);
           const mapping2slot = await slot3Contract.mappingSlotLocation(6, acc2.address);
-
+          // mapping values at non contiguos slots
+          expect(await slot3Contract.getValue(mapping0slot)).to.eq(mapping0slotVal);
+          expect(await slot3Contract.getValue(mapping1slot)).to.eq(mapping1slotVal);
+          expect(await slot3Contract.getValue(mapping2slot)).to.eq(mapping2slotVal);
           // print out non contiguosly slot locations
-          expect(await slot3Contract.getValue(mapping0slot)).to.eq(99);
           // console.log(BigNumber.from(mapping0slot).toString());
           // console.log(BigNumber.from(mapping1slot).toString());
           // console.log(BigNumber.from(mapping2slot).toString());
+        });
+      });
+      describe("ERC721 Approvals", function () {
+        it("setApprovalForAll", async () => {
+          expect(await erc721.ownerOf(1)).to.eq(deployer.address);
+          // Transfer without approval will revert
+          await expect(erc721.connect(acc1).transferFrom(deployer.address, acc2.address, 1)).to.be.revertedWith(
+            "ERC721: caller is not token owner nor approved"
+          );
+          // Set Approval account
+          await erc721.setApprovalForAll(acc1.address, true);
+          expect(await erc721.isApprovedForAll(deployer.address, acc1.address)).to.eq(true);
+          // // Transfer from approved calling
+          await erc721.connect(acc1).transferFrom(deployer.address, acc2.address, 1);
+        });
+        it("sets approval for tokenID", async () => {
+          await erc721.connect(deployer).approve(acc1.address, 1);
+          expect(await erc721.getApproved(1)).to.eq(acc1.address);
         });
       });
     });

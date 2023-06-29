@@ -79,7 +79,7 @@ const {getContractFactory} = require("@nomiclabs/hardhat-ethers/types");
         });
       });
 
-      describe("Token Owners revoke exchange approvals", function () {
+      describe("token Owners revoke exchange approvals", function () {
         it("confirms token owner", async () => {
           expect(await collection.ownerOf(1)).to.eq(seller.address);
         });

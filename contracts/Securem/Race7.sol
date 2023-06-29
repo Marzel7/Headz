@@ -85,8 +85,7 @@ contract Race7 is ERC721Enumerable, Ownable {
         for (uint256 i = 0; i < numberOfTokens; i++) {
             uint256 mintIndex = totalSupply();
             if (totalSupply() < MAX_APES) {
-                // =!
-                _safeMint(msg.sender, mintIndex); // mintIndex + 1, will fail
+                _safeMint(msg.sender, mintIndex);
             }
         }
 
@@ -131,15 +130,18 @@ contract Race7x is ERC721TokenReceiver {
     }
 
     function onERC721Received(
-        address _operator,
-        address _from,
-        uint256 _tokenId,
-        bytes calldata _data
+        address operator,
+        address from,
+        uint256 tokenId,
+        bytes calldata data
     ) external override returns (bytes4) {
+        if (tokenId <= 29) {
+            mint();
+        } else {}
         return ERC721_RECEIVED;
     }
 
-    function mint() external payable {
-        apeContract.mintApe{value: msg.value}(1);
+    function mint() public payable {
+        apeContract.mintApe{value: purchaseAmount}(1);
     }
 }

@@ -1,8 +1,7 @@
 const {assert, expect, AssertionError} = require("chai");
-const {isBytes, resolveProperties} = require("ethers/lib/utils");
 const {network, deployments, ethers} = require("hardhat");
-const {developmentChains, networkConfig} = require("../../helper-hardhat-config");
-const {fromWei, toWei, contractBalance, contractCode} = require("../../helpers/helpers.js");
+const {developmentChains} = require("../../helper-hardhat-config");
+const {fromWei, contractBalance, contractCode} = require("../../helpers/helpers.js");
 
 !developmentChains.includes(network.name)
   ? describe.skip

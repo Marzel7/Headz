@@ -61,3 +61,34 @@ contract Slot2ExternalCall {
         return tx.origin;
     }
 }
+
+contract B {
+    // storage layout must be the same as contract A
+    uint256 public num;
+    address public sender;
+    uint256 public value;
+
+    function setVars(uint256 _num) public payable {
+        num = _num;
+        sender = msg.sender;
+        value = msg.value;
+    }
+
+    function destroy() external {
+        selfdestruct(payable(msg.sender));
+    }
+}
+
+contract A {
+    uint256 public num;
+    address public sender;
+    uint256 public value;
+
+    // A's storage is set, B is not modified.
+    function setVars(address _contract, uint256 _num) public payable {
+        (bool success, ) = _contract.delegatecall(
+            abi.encodeWithSignature("setVars(uint256)", _num)
+        );
+        require(success, "delegatecall failed");
+    }
+}

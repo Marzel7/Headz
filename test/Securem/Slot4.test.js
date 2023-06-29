@@ -16,7 +16,7 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 !developmentChains.includes(network.name)
   ? describe.skip
-  : describe("Securem slot2 unit tests", function () {
+  : describe("Securem slot4 unit tests", function () {
       let q4, deployer, acc1, acc2, erc721;
 
       beforeEach(async () => {

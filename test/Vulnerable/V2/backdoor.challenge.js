@@ -2,12 +2,15 @@ const {ethers} = require("hardhat");
 const {expect} = require("chai");
 const {AddressZero} = require("@ethersproject/constants");
 
+const ERC20 = require("@openzeppelin/contracts/build/contracts/ERC20.json");
+const IERC20 = new ethers.utils.Interface(JSON.stringify(ERC20.abi));
+
 describe("[Challenge] Backdoor", function () {
   let deployer, users, attacker;
 
   const AMOUNT_TOKENS_DISTRIBUTED = ethers.utils.parseEther("40");
 
-  before(async function () {
+  beforeEach(async function () {
     /** SETUP SCENARIO - NO NEED TO CHANGE ANYTHING HERE */
     [deployer, alice, bob, charlie, david, attacker] = await ethers.getSigners();
     users = [alice.address, bob.address, charlie.address, david.address];
@@ -21,6 +24,14 @@ describe("[Challenge] Backdoor", function () {
     this.walletRegistry = await (
       await ethers.getContractFactory("WalletRegistry", deployer)
     ).deploy(this.masterCopy.address, this.walletFactory.address, this.token.address, users);
+
+    this.walletRegistryAttack = await (
+      await ethers.getContractFactory("WalletRegistryAttack", deployer)
+    ).deploy(this.masterCopy.address, this.walletFactory.address, this.walletRegistry.address, this.token.address);
+
+    this.walletRegistryAttack2 = await (
+      await ethers.getContractFactory("WalletRegistryAttack2", deployer)
+    ).deploy(this.masterCopy.address, this.walletFactory.address, this.walletRegistry.address, this.token.address);
 
     // Users are registered as beneficiaries
     for (let i = 0; i < users.length; i++) {
@@ -52,6 +63,18 @@ describe("[Challenge] Backdoor", function () {
     });
   });
 
+  describe("createProxyWithCallback", function () {
+    it("emits a ProxyCreation event with WalletRegistry callback'", async function () {
+      await this.walletRegistryAttack.execute(users, attacker.address);
+    });
+  });
+
+  describe("createProxyWithCallback", function () {
+    it("uses fallback handler", async function () {
+      await this.walletRegistryAttack2.execute(users, attacker.address);
+    });
+  });
+
   /** CODE YOUR EXPLOIT HERE */
   // create proxy
 
@@ -61,13 +84,13 @@ describe("[Challenge] Backdoor", function () {
       let wallet = await this.walletRegistry.wallets(users[i]);
 
       // User must have registered a wallet
-      //expect(wallet).to.not.eq(ethers.constants.AddressZero, "User did not register a wallet");
+      expect(wallet).to.not.eq(ethers.constants.AddressZero, "User did not register a wallet");
 
-      // User is no longer registered as a beneficiary
-      // expect(await this.walletRegistry.beneficiaries(users[i])).to.be.false;
+      //User is no longer registered as a beneficiary
+      expect(await this.walletRegistry.beneficiaries(users[i])).to.be.false;
     }
 
     // Attacker must have taken all tokens
-    //expect(await this.token.balanceOf(attacker.address)).to.eq(AMOUNT_TOKENS_DISTRIBUTED);
+    expect(await this.token.balanceOf(attacker.address)).to.eq(AMOUNT_TOKENS_DISTRIBUTED);
   });
 });

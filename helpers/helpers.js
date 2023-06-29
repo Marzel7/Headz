@@ -67,6 +67,7 @@ async function getMappingItem(slot, contractAddress, key) {
   const itemSlot = ethers.utils.keccak256(paddedKey + paddedSlot.slice(2));
   return await getUint256(itemSlot, contractAddress);
 }
+
 ///////////////////////////////////
 
 module.exports = {

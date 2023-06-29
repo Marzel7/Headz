@@ -15,7 +15,7 @@ const {
 
 !developmentChains.includes(network.name)
   ? describe.skip
-  : describe("Securem slot2 unit tests", function () {
+  : describe("Securem slot5 unit tests", function () {
       let s5Q3, s5Q6, deployer, acc1, acc2, erc721;
 
       beforeEach(async () => {

@@ -77,4 +77,10 @@ describe("Vesting", function () {
       expect(await daiContract.balanceOf(ownerAdr)).to.eq(totalSupply);
     });
   });
+
+  describe("Reentracy", function () {
+    it("Reentrancy attempt", async () => {
+      const {daiContract, vestingContract} = await loadFixture(setUpContractUtils);
+    });
+  });
 });

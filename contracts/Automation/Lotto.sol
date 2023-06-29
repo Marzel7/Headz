@@ -42,13 +42,14 @@ contract Lotto is ERC721, VRFConsumerBaseV2, KeeperCompatibleInterface {
     bytes32 private immutable i_gasLane;
     uint32 private i_callbackGasLimit;
     uint16 private REQUEST_CONFIRMATIONS = 3;
-    uint32 private constant NUM_WORDS = 1;
+    uint32 private constant NUM_WORDS = 2;
 
     // Lotto varibles
     uint256 private immutable i_interval;
-    uint256 private immutable s_lastTimeStamp;
     uint256 private immutable i_entranceFee;
-    address[] public accountsRegistered;
+    uint256 private s_lastTimeStamp;
+    address private s_recentWinner;
+    address payable[] private s_players;
     LottoState private s_lottoState;
 
     struct RegistrationInfo {
@@ -57,7 +58,7 @@ contract Lotto is ERC721, VRFConsumerBaseV2, KeeperCompatibleInterface {
     }
 
     struct NftRegistry {
-        string name;
+        address winner;
         uint256 t1;
         uint256 t2;
     }
@@ -65,11 +66,10 @@ contract Lotto is ERC721, VRFConsumerBaseV2, KeeperCompatibleInterface {
     mapping(address => RegistrationInfo) public registeredAccounts;
     mapping(uint256 => address) public requestToSender;
     mapping(uint256 => NftRegistry) public tokenIdToNftInfo;
-    mapping(uint256 => string) public requestToCharacterName;
 
     event Registered(address account, uint256 timestamp);
-    event RequestedRandomness(uint256 reqId, address invoker, string name);
-    event ReceivedRandomness(uint256 reqId, uint256 w1, uint256 w2);
+    event RequestedRandomness(uint256 indexed requestId);
+    event WinnerPicked(address indexed player);
 
     modifier onlyOwner() {
         require(msg.sender == owner, "caller is not the owner");
@@ -94,47 +94,37 @@ contract Lotto is ERC721, VRFConsumerBaseV2, KeeperCompatibleInterface {
         owner = msg.sender;
     }
 
-    // Assumes the subscription is funded sufficiently.
-    function safeMint(string calldata name)
-        external
-        returns (uint256 requestId)
-    {
-        require(registeredAccounts[msg.sender].isRegistered, "not registered");
-        // Will revert if subscription is not set and funded.
-        requestId = i_vrfCoordinator.requestRandomWords(
-            i_gasLane,
-            i_subscriptionId,
-            REQUEST_CONFIRMATIONS,
-            i_callbackGasLimit,
-            NUM_WORDS
-        );
-
-        requestToSender[requestId] = msg.sender;
-        requestToCharacterName[requestId] = name;
-        emit RequestedRandomness(requestId, msg.sender, name);
-    }
-
-    function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords)
+    /// @dev This is called by Chainlink VRF node
+    // calls to send the money to the random winner
+    function fulfillRandomWords(uint256, uint256[] memory randomWords)
         internal
         override
     {
         uint256 w1 = randomWords[0];
         uint256 w2 = randomWords[1];
-        // uint8 p = uint8(w2 % 10);
-        // uint8 sp = uint8((w2 % 100) / 10);
-        // uint16 c = uint16((w2 % 1000) / 100);
 
-        //address sender = requestToSender[requestId];
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
-        uint256 winningAdr = uint256(w2 % accountsRegistered.length);
+        // s_players size x
+        uint256 indexOfWinner = randomWords[0] % s_players.length;
+        address payable recentWinner = s_players[indexOfWinner];
 
-        _safeMint(accountsRegistered[winningAdr], tokenId);
-        string memory name = requestToCharacterName[requestId];
-        NftRegistry memory nftRegistry = NftRegistry(name, w1, w2);
+        NftRegistry memory nftRegistry = NftRegistry(recentWinner, w1, w2);
         tokenIdToNftInfo[tokenId] = nftRegistry;
 
-        emit ReceivedRandomness(requestId, w1, w2);
+        /// Mint NFT to Winner
+        _safeMint(recentWinner, tokenId);
+        s_recentWinner = recentWinner;
+
+        // Transfer balance to winner
+        (bool success, ) = recentWinner.call{value: address(this).balance}("");
+        require(success, "failed to transfer contract balance");
+
+        s_players = new address payable[](0);
+        s_lottoState = LottoState.OPEN;
+        s_lastTimeStamp = block.timestamp;
+
+        emit WinnerPicked(recentWinner);
     }
 
     /// @notice Deposits funds to enter lottery
@@ -156,7 +146,7 @@ contract Lotto is ERC721, VRFConsumerBaseV2, KeeperCompatibleInterface {
         registrationInfo.date = block.timestamp;
 
         registeredAccounts[msg.sender] = registrationInfo;
-        accountsRegistered.push(msg.sender);
+        s_players.push(payable(msg.sender));
         emit Registered(msg.sender, block.timestamp);
     }
 
@@ -169,24 +159,31 @@ contract Lotto is ERC721, VRFConsumerBaseV2, KeeperCompatibleInterface {
         // Todo
         bool isOpen = LottoState.OPEN == s_lottoState;
         bool timePassed = block.timestamp > s_lastTimeStamp + i_interval;
-        bool hasPlayers = accountsRegistered.length > 0;
+        bool hasPlayers = s_players.length > 0;
         bool hasBalance = address(this).balance > 0;
         upKeepNeeded = isOpen && timePassed && hasPlayers && hasBalance;
         return (upKeepNeeded, "0x");
     }
 
     function performUpkeep(bytes calldata) external override {
-        // Todo
         (bool upKeepNeeded, ) = checkUpkeep("");
         if (!upKeepNeeded) {
             revert Lotto_UpkeepNotNeeded(
                 address(this).balance,
-                accountsRegistered.length,
+                s_players.length,
                 uint256(s_lottoState)
             );
         }
-
         s_lottoState = LottoState.CALCULATING;
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
+            i_gasLane,
+            i_subscriptionId,
+            REQUEST_CONFIRMATIONS,
+            i_callbackGasLimit,
+            NUM_WORDS
+        );
+
+        emit RequestedRandomness(requestId);
     }
 
     /// @notice Withdraw Ether from the contract
@@ -210,6 +207,18 @@ contract Lotto is ERC721, VRFConsumerBaseV2, KeeperCompatibleInterface {
 
     function getEntranceFee() external view returns (uint256) {
         return i_entranceFee;
+    }
+
+    function getLastTimeStamp() external view returns (uint256) {
+        return s_lastTimeStamp;
+    }
+
+    function getPlayer(uint256 index) external view returns (address) {
+        return s_players[index];
+    }
+
+    function getRecentWinner() external view returns (address) {
+        return s_recentWinner;
     }
 
     receive() external payable {}

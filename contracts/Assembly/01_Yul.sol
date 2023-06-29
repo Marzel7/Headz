@@ -117,6 +117,12 @@ contract YulStorage {
             let value
             let shifted
             switch num
+            // the value = 0x000400050000000.....
+            // let value := sload(a.slot)
+
+            // shr stands for shift right
+            // we are multiplying c's offset * 8bits
+            // every bytes will shift and become 0 => 0x00000000000......
             case 0 {
                 slotValue := a.offset
                 value := sload(a.slot)
@@ -137,13 +143,6 @@ contract YulStorage {
                 value := sload(d.slot)
                 shifted := shr(mul(d.offset, 8), value)
             }
-            // the value = 0x000400050000000.....
-            // let value := sload(a.slot)
-
-            // shr stands for shift right
-            // we are multiplying c's offset * 8bits
-            // every bytes will shift and become 0 => 0x00000000000......
-            //let shifted := shr(mul(a.offset, 8), value)
 
             // masking operation
             // these f are 1 under the hood ff = 11111111

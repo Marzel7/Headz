@@ -38,11 +38,9 @@ contract Vesting is Ownable {
         require(isLocked, "funds aren't locked");
         require(!isClaimed, "funds already claimed");
         require(block.timestamp > expiry, "expiry still active");
-
-        bool success = token.transfer(owner(), lockedAmount);
-        /// TODO Rentrancy fix
         lockedAmount = 0;
         isClaimed = true;
+        bool success = token.transfer(owner(), lockedAmount);
         require(success, "withdrawal failed");
     }
 

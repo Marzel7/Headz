@@ -135,7 +135,7 @@ describe("Crops Marketplace", function () {
       const {cropsInstance, marketInstance, deployerAdr, daiAdr} = await loadFixture(setUpContractUtils);
 
       expect(await cropsInstance.balanceOf(deployerAdr, 0)).to.eq(1000);
-
+      // Dai contract does not implement ERC1155Receiver
       await expect(cropsInstance.safeTransferFrom(deployerAdr, daiAdr, 0, 1, "0x")).to.be.revertedWith(
         "'ERC1155: transfer to non ERC1155Receiver implementer"
       );
